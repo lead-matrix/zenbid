@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { supabase } from '../api/supabase';
 import { calcTotals, formatCurrency } from '../lib/calculations';
@@ -6,6 +6,135 @@ import type { Project, ProjectItem } from '../types';
 import { TRADE_EMOJIS } from '../types';
 import { toast } from 'sonner';
 
+// ── Canvas Signature Pad ─────────────────────────────────────────────────────
+function SignaturePad({
+  onSign,
+  onClear,
+  signed,
+}: {
+  onSign: (dataUrl: string) => void;
+  onClear: () => void;
+  signed: boolean;
+}) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const drawing = useRef(false);
+  const lastPos = useRef<{ x: number; y: number } | null>(null);
+
+  const getPos = (e: MouseEvent | TouchEvent, canvas: HTMLCanvasElement) => {
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    if ('touches' in e) {
+      return {
+        x: (e.touches[0].clientX - rect.left) * scaleX,
+        y: (e.touches[0].clientY - rect.top) * scaleY,
+      };
+    }
+    return {
+      x: (e.clientX - rect.left) * scaleX,
+      y: (e.clientY - rect.top) * scaleY,
+    };
+  };
+
+  const startDraw = useCallback((e: MouseEvent | TouchEvent) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    e.preventDefault();
+    drawing.current = true;
+    lastPos.current = getPos(e, canvas);
+  }, []);
+
+  const draw = useCallback((e: MouseEvent | TouchEvent) => {
+    if (!drawing.current) return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    e.preventDefault();
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    const pos = getPos(e, canvas);
+    if (lastPos.current) {
+      ctx.beginPath();
+      ctx.moveTo(lastPos.current.x, lastPos.current.y);
+      ctx.lineTo(pos.x, pos.y);
+      ctx.strokeStyle = '#1E293B';
+      ctx.lineWidth = 2.5;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.stroke();
+    }
+    lastPos.current = pos;
+  }, []);
+
+  const endDraw = useCallback(() => {
+    if (!drawing.current) return;
+    drawing.current = false;
+    lastPos.current = null;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    onSign(canvas.toDataURL('image/png'));
+  }, [onSign]);
+
+  const handleClear = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    onClear();
+  };
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    canvas.addEventListener('mousedown', startDraw);
+    canvas.addEventListener('mousemove', draw);
+    window.addEventListener('mouseup', endDraw);
+    canvas.addEventListener('touchstart', startDraw, { passive: false });
+    canvas.addEventListener('touchmove', draw, { passive: false });
+    window.addEventListener('touchend', endDraw);
+    return () => {
+      canvas.removeEventListener('mousedown', startDraw);
+      canvas.removeEventListener('mousemove', draw);
+      window.removeEventListener('mouseup', endDraw);
+      canvas.removeEventListener('touchstart', startDraw);
+      canvas.removeEventListener('touchmove', draw);
+      window.removeEventListener('touchend', endDraw);
+    };
+  }, [startDraw, draw, endDraw]);
+
+  return (
+    <div className="space-y-2">
+      <div
+        className={`relative rounded-xl border-2 ${
+          signed ? 'border-emerald-300 bg-emerald-50/30' : 'border-dashed border-slate-300 bg-slate-50'
+        } transition-colors overflow-hidden`}
+        style={{ height: 96 }}
+      >
+        <canvas
+          ref={canvasRef}
+          width={600}
+          height={192}
+          className="w-full h-full cursor-crosshair touch-none"
+        />
+        {!signed && (
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <span className="text-xs text-slate-400 select-none">✍️ Sign here</span>
+          </div>
+        )}
+      </div>
+      {signed && (
+        <button
+          onClick={handleClear}
+          className="text-xs text-slate-400 hover:text-red-500 transition-colors underline"
+        >
+          Clear signature
+        </button>
+      )}
+    </div>
+  );
+}
+
+// ── Main ClientPortal Component ──────────────────────────────────────────────
 export default function ClientPortal() {
   const { shareToken } = useParams<{ shareToken: string }>();
   const [project, setProject] = useState<Project | null>(null);
@@ -16,6 +145,8 @@ export default function ClientPortal() {
   const [message, setMessage] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [signatureDataUrl, setSignatureDataUrl] = useState<string | null>(null);
+  const [signatureError, setSignatureError] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -46,8 +177,40 @@ export default function ClientPortal() {
     fetchData();
   }, [shareToken]);
 
+  // ── Notify contractor via edge function ─────────────────────────────────
+  const notifyContractor = async (actionType: 'approve' | 'changes', msg: string) => {
+    if (!project) return;
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+    try {
+      await fetch(`${supabaseUrl}/functions/v1/notify-contractor`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${anonKey}`,
+          'apikey': anonKey,
+        },
+        body: JSON.stringify({
+          shareToken,
+          action: actionType,
+          clientMessage: msg || null,
+          clientName: project.client_name,
+        }),
+      });
+    } catch (e) {
+      // Non-fatal — notification failed silently
+      console.warn('Contractor notification failed:', e);
+    }
+  };
+
   const handleApprove = async () => {
     if (!project) return;
+    if (!signatureDataUrl) {
+      setSignatureError(true);
+      toast.error('Please sign the proposal before approving.');
+      return;
+    }
+    setSignatureError(false);
     setSubmitting(true);
 
     const { error } = await supabase
@@ -64,6 +227,8 @@ export default function ClientPortal() {
       console.error('Approval error:', error);
       toast.error('Failed to submit. Please try again.');
     } else {
+      // Notify contractor
+      await notifyContractor('approve', message);
       setSubmitted(true);
       setAction(null);
       toast.success('Bid approved! The contractor has been notified.');
@@ -73,6 +238,10 @@ export default function ClientPortal() {
 
   const handleRequestChanges = async () => {
     if (!project) return;
+    if (!message.trim()) {
+      toast.error('Please describe the changes you need.');
+      return;
+    }
     setSubmitting(true);
 
     const { error } = await supabase
@@ -87,6 +256,8 @@ export default function ClientPortal() {
       console.error('Changes request error:', error);
       toast.error('Failed to submit. Please try again.');
     } else {
+      // Notify contractor
+      await notifyContractor('changes', message);
       setSubmitted(true);
       setAction(null);
       toast.success('Message sent! The contractor will review your feedback.');
@@ -119,7 +290,7 @@ export default function ClientPortal() {
 
   return (
     <div className="min-h-screen bg-slate-100">
-      {/* Header */}
+      {/* ── Header ── */}
       <div style={{ background: '#0F172A' }} className="w-full">
         <div className="max-w-4xl mx-auto px-8 py-8 flex items-center justify-between">
           <div className="flex items-center gap-4">
@@ -153,7 +324,7 @@ export default function ClientPortal() {
         </div>
       </div>
 
-      {/* Client + Project Info */}
+      {/* ── Client + Project Info ── */}
       <div className="bg-slate-50 border-b border-slate-200">
         <div className="max-w-4xl mx-auto px-8 py-6 grid grid-cols-2 gap-8">
           <div>
@@ -179,7 +350,7 @@ export default function ClientPortal() {
       </div>
 
       <div className="max-w-4xl mx-auto px-8 py-8 space-y-6">
-        {/* Already approved banner */}
+        {/* ── Already approved banner ── */}
         {isApproved && (
           <div className="bg-emerald-50 border border-emerald-200 rounded-2xl px-6 py-4 flex items-center gap-3">
             <span className="text-2xl">✅</span>
@@ -192,20 +363,20 @@ export default function ClientPortal() {
           </div>
         )}
 
-        {/* Submitted confirmation */}
+        {/* ── Submitted confirmation ── */}
         {submitted && (
           <div className="bg-indigo-50 border border-indigo-200 rounded-2xl px-6 py-5 text-center">
             <div className="text-3xl mb-2">🎉</div>
             <div className="text-indigo-800 font-bold">
-              {action === null ? 'Bid approved!' : 'Message sent!'}
+              {action === null ? 'Response submitted!' : 'Message sent!'}
             </div>
             <div className="text-indigo-600 text-sm mt-1">
-              {project.company_name || 'The contractor'} will be in touch shortly.
+              {project.company_name || 'The contractor'} has been notified and will be in touch shortly.
             </div>
           </div>
         )}
 
-        {/* Line Items */}
+        {/* ── Line Items ── */}
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
           <div className="bg-slate-800 px-5 py-3 grid grid-cols-12 gap-2">
             <div className="col-span-5 text-xs font-semibold text-slate-300 uppercase tracking-wide">Description</div>
@@ -243,7 +414,7 @@ export default function ClientPortal() {
           )}
         </div>
 
-        {/* Totals */}
+        {/* ── Totals ── */}
         <div className="flex justify-end">
           <div className="w-72 space-y-2">
             <div className="flex justify-between py-2 px-4 bg-slate-100 rounded-xl">
@@ -252,7 +423,7 @@ export default function ClientPortal() {
             </div>
             {totals.marginAmount > 0 && (
               <div className="flex justify-between py-2 px-4 bg-white rounded-xl border border-slate-100">
-                <span className="text-sm text-slate-500">Overhead & Profit</span>
+                <span className="text-sm text-slate-500">Overhead &amp; Profit</span>
                 <span className="text-sm font-medium text-slate-700">{formatCurrency(totals.marginAmount)}</span>
               </div>
             )}
@@ -269,15 +440,81 @@ export default function ClientPortal() {
           </div>
         </div>
 
-        {/* Notes */}
+        {/* ── Notes ── */}
         {project.notes && (
           <div className="bg-white rounded-2xl border border-slate-200 p-6">
-            <h3 className="text-sm font-bold text-slate-800 mb-3 uppercase tracking-wide">Notes & Scope of Work</h3>
+            <h3 className="text-sm font-bold text-slate-800 mb-3 uppercase tracking-wide">Notes &amp; Scope of Work</h3>
             <p className="text-sm text-slate-600 leading-relaxed whitespace-pre-wrap">{project.notes}</p>
           </div>
         )}
 
-        {/* Action buttons */}
+        {/* ── Signature Block ── PLACED BEFORE action buttons ── */}
+        {!isApproved && !submitted && (
+          <div className="bg-white rounded-2xl border border-slate-200 p-6">
+            <h3 className="text-sm font-bold text-slate-800 mb-1 uppercase tracking-wide">Signatures</h3>
+            <p className="text-xs text-slate-400 mb-5">By signing, you acknowledge and agree to the terms of this proposal.</p>
+
+            <div className="grid grid-cols-2 gap-8">
+              {/* Client Signature */}
+              <div>
+                <div className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3">
+                  Client Signature
+                  {action === 'approve' && (
+                    <span className="ml-1.5 text-red-400">*required</span>
+                  )}
+                </div>
+                <SignaturePad
+                  onSign={(url) => { setSignatureDataUrl(url); setSignatureError(false); }}
+                  onClear={() => setSignatureDataUrl(null)}
+                  signed={!!signatureDataUrl}
+                />
+                {signatureError && (
+                  <p className="text-xs text-red-500 mt-1.5">Please sign before approving.</p>
+                )}
+                <div className="mt-2 border-t border-slate-200 pt-2">
+                  <div className="text-xs text-slate-400">Signature &amp; Date: {new Date().toLocaleDateString()}</div>
+                </div>
+              </div>
+
+              {/* Authorized By */}
+              <div>
+                <div className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3">Authorized By</div>
+                <div
+                  className="rounded-xl border-2 border-dashed border-slate-200 bg-slate-50 flex items-center justify-center"
+                  style={{ height: 96 }}
+                >
+                  <div className="text-center">
+                    <div className="text-sm font-bold text-slate-600">{project.company_name || 'Company Representative'}</div>
+                    <div className="text-xs text-slate-400 mt-0.5">Contractor</div>
+                  </div>
+                </div>
+                <div className="mt-2 border-t border-slate-200 pt-2">
+                  <div className="text-xs text-slate-400">{project.company_name || 'Authorized Representative'}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── Signature Block (approved state) ── */}
+        {(isApproved || submitted) && (
+          <div className="bg-white rounded-2xl border border-slate-200 p-6">
+            <div className="grid grid-cols-2 gap-8">
+              <div>
+                <div className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-4">Client Signature</div>
+                <div className="border-b-2 border-slate-300 mb-2 pb-6" />
+                <div className="text-xs text-slate-400">Signature &amp; Date</div>
+              </div>
+              <div>
+                <div className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-4">Authorized By</div>
+                <div className="border-b-2 border-slate-300 mb-2 pb-6" />
+                <div className="text-xs text-slate-400">{project.company_name || 'Company Representative'}</div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── Action Buttons ── (AFTER signature) */}
         {!submitted && !isApproved && (
           <div className="bg-white rounded-2xl border border-slate-200 p-6 space-y-4">
             <h3 className="text-sm font-bold text-slate-800">Your Response</h3>
@@ -309,6 +546,20 @@ export default function ClientPortal() {
 
             {action && (
               <div className="space-y-3">
+                {action === 'approve' && !signatureDataUrl && (
+                  <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
+                    <span className="text-amber-500 mt-0.5">⚠️</span>
+                    <p className="text-xs text-amber-700">
+                      Please scroll up and sign the proposal above before confirming approval.
+                    </p>
+                  </div>
+                )}
+                {action === 'approve' && signatureDataUrl && (
+                  <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3">
+                    <span className="text-emerald-500">✅</span>
+                    <p className="text-xs text-emerald-700 font-medium">Signature captured. You're ready to approve.</p>
+                  </div>
+                )}
                 <textarea
                   value={message}
                   onChange={e => setMessage(e.target.value)}
@@ -316,7 +567,7 @@ export default function ClientPortal() {
                   placeholder={
                     action === 'approve'
                       ? 'Optional: Add a message for the contractor...'
-                      : 'Describe the changes you need...'
+                      : 'Describe the changes you need... (required)'
                   }
                   className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-800 focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 resize-none transition-all"
                 />
@@ -330,30 +581,18 @@ export default function ClientPortal() {
                       : 'bg-amber-500 hover:bg-amber-600 text-white shadow-amber-200'
                   }`}
                 >
-                  {submitting ? 'Submitting...' : action === 'approve' ? 'Confirm Approval' : 'Send Changes Request'}
+                  {submitting
+                    ? 'Submitting…'
+                    : action === 'approve'
+                    ? 'Confirm Approval'
+                    : 'Send Changes Request'}
                 </button>
               </div>
             )}
           </div>
         )}
 
-        {/* Signature block */}
-        <div className="bg-white rounded-2xl border border-slate-200 p-6">
-          <div className="grid grid-cols-2 gap-8">
-            <div>
-              <div className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-4">Client Signature</div>
-              <div className="border-b-2 border-slate-300 mb-2 pb-6" />
-              <div className="text-xs text-slate-400">Signature & Date</div>
-            </div>
-            <div>
-              <div className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-4">Authorized By</div>
-              <div className="border-b-2 border-slate-300 mb-2 pb-6" />
-              <div className="text-xs text-slate-400">{project.company_name || 'Company Representative'}</div>
-            </div>
-          </div>
-        </div>
-
-        {/* Footer */}
+        {/* ── Footer ── */}
         <div style={{ background: '#0F172A' }} className="rounded-2xl px-6 py-4 text-center">
           <div className="text-slate-400 text-xs">
             {project.company_name} · Generated by ZenBid Pro · {new Date().getFullYear()}

@@ -123,16 +123,18 @@ export default function EstimatorWorkspace() {
         throw new Error('PDF generation failed');
       }
 
-      const blob = await response.blob();
+      // Edge function returns HTML with auto-print — open in a new tab
+      const html = await response.text();
+      const blob = new Blob([html], { type: 'text/html; charset=utf-8' });
       const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `ZenBid_${project.name.replace(/\s+/g, '_')}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-      toast.success('PDF downloaded!');
+      const printWindow = window.open(url, '_blank');
+      if (!printWindow) {
+        toast.error('Pop-up blocked. Please allow pop-ups for this site.');
+      } else {
+        toast.success('Print dialog opening…');
+        // Cleanup URL after print window loads
+        setTimeout(() => URL.revokeObjectURL(url), 30000);
+      }
     } catch {
       toast.error('PDF generation failed. Check edge function deployment.');
     } finally {
