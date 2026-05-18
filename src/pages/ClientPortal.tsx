@@ -55,17 +55,18 @@ export default function ClientPortal() {
       .update({
         status: 'approved',
         client_approved_at: new Date().toISOString(),
-        client_message: message,
+        client_message: message || null,
         updated_at: new Date().toISOString(),
       })
-      .eq('id', project.id);
+      .eq('share_token', shareToken);
 
     if (error) {
+      console.error('Approval error:', error);
       toast.error('Failed to submit. Please try again.');
     } else {
       setSubmitted(true);
       setAction(null);
-      toast.success('Bid approved!');
+      toast.success('Bid approved! The contractor has been notified.');
     }
     setSubmitting(false);
   };
@@ -80,14 +81,15 @@ export default function ClientPortal() {
         client_message: message,
         updated_at: new Date().toISOString(),
       })
-      .eq('id', project.id);
+      .eq('share_token', shareToken);
 
     if (error) {
+      console.error('Changes request error:', error);
       toast.error('Failed to submit. Please try again.');
     } else {
       setSubmitted(true);
       setAction(null);
-      toast.success('Message sent!');
+      toast.success('Message sent! The contractor will review your feedback.');
     }
     setSubmitting(false);
   };

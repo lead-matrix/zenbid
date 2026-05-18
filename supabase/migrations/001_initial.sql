@@ -42,6 +42,9 @@ create table if not exists projects (
 alter table projects enable row level security;
 create policy "Own projects only" on projects for all using (auth.uid() = user_id);
 create policy "Public share token read" on projects for select using (share_token is not null);
+create policy "Public client approval" on projects for update
+  using (share_token is not null)
+  with check (share_token is not null);
 
 -- project_items
 create table if not exists project_items (
@@ -57,7 +60,11 @@ create table if not exists project_items (
 alter table project_items enable row level security;
 create policy "Own items only" on project_items for all using (auth.uid() = user_id);
 create policy "Public items read via project" on project_items for select
-  using (exists (select 1 from projects p where p.id = project_id and p.share_token is not null));
+  using (exists (
+    select 1 from projects p
+    where p.id = project_id
+    and p.share_token is not null
+  ));
 
 -- price_book
 create table if not exists price_book (
