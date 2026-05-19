@@ -4,10 +4,7 @@ import { Toaster } from 'sonner';
 import { supabase } from './api/supabase';
 import { useAppStore } from './store/useAppStore';
 
-// Layout
 import Sidebar from './components/layout/Sidebar';
-
-// Pages
 import Login from './pages/Auth/Login';
 import Signup from './pages/Auth/Signup';
 import ForgotPassword from './pages/Auth/ForgotPassword';
@@ -20,24 +17,19 @@ import ClientPortal from './pages/ClientPortal';
 import LandingPage from './pages/LandingPage';
 import AdminPortal from './pages/AdminPortal';
 
-// Shows landing page to guests, redirects authenticated users to /dashboard
 function SmartRoot() {
   const [session, setSession] = useState<boolean | null>(null);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(!!session);
-    });
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(!!session);
-    });
+    supabase.auth.getSession().then(({ data: { session } }) => setSession(!!session));
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, s) => setSession(!!s));
     return () => subscription.unsubscribe();
   }, []);
 
   if (session === null) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-950">
-        <div className="w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+      <div className="min-h-screen flex items-center justify-center" style={{ background: '#0A1024' }}>
+        <div className="w-8 h-8 border-4 border-t-transparent rounded-full animate-spin" style={{ borderColor: '#C07840', borderTopColor: 'transparent' }} />
       </div>
     );
   }
@@ -50,19 +42,15 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<boolean | null>(null);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(!!session);
-    });
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(!!session);
-    });
+    supabase.auth.getSession().then(({ data: { session } }) => setSession(!!session));
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, s) => setSession(!!s));
     return () => subscription.unsubscribe();
   }, []);
 
   if (session === null) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <div className="w-8 h-8 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+        <div className="w-8 h-8 border-4 border-navy-600 border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
@@ -74,14 +62,13 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 function AppLayout({ children }: { children: React.ReactNode }) {
   const fetchProfile = useAppStore(s => s.fetchProfile);
 
-  useEffect(() => {
-    fetchProfile();
-  }, [fetchProfile]);
+  useEffect(() => { fetchProfile(); }, [fetchProfile]);
 
   return (
     <div className="flex min-h-screen bg-slate-50">
       <Sidebar />
-      <main className="flex-1 overflow-auto ml-60">
+      {/* pt-14 on mobile for top bar, lg:pt-0 for desktop; lg:ml-60 for sidebar offset */}
+      <main className="flex-1 overflow-auto pt-14 lg:pt-0 lg:ml-60 app-main">
         {children}
       </main>
     </div>
@@ -93,27 +80,17 @@ function App() {
     <BrowserRouter>
       <Toaster position="top-right" richColors closeButton />
       <Routes>
-        {/* Public landing page (smart: redirects to /dashboard if logged in) */}
         <Route path="/" element={<SmartRoot />} />
-
-        {/* Auth routes */}
         <Route path="/login" element={<Login />} />
-        {/* /signup only reachable via Supabase invite magic link */}
         <Route path="/signup" element={<Signup />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
-
-        {/* Public client portal */}
         <Route path="/approve/:shareToken" element={<ClientPortal />} />
-
-        {/* Protected app routes */}
-        <Route path="/dashboard" element={<ProtectedRoute><AppLayout><Dashboard /></AppLayout></ProtectedRoute>} />
-        <Route path="/projects" element={<ProtectedRoute><AppLayout><Projects /></AppLayout></ProtectedRoute>} />
+        <Route path="/dashboard"   element={<ProtectedRoute><AppLayout><Dashboard /></AppLayout></ProtectedRoute>} />
+        <Route path="/projects"    element={<ProtectedRoute><AppLayout><Projects /></AppLayout></ProtectedRoute>} />
         <Route path="/projects/:id" element={<ProtectedRoute><AppLayout><EstimatorWorkspace /></AppLayout></ProtectedRoute>} />
-        <Route path="/price-book" element={<ProtectedRoute><AppLayout><PriceBook /></AppLayout></ProtectedRoute>} />
-        <Route path="/settings" element={<ProtectedRoute><AppLayout><Settings /></AppLayout></ProtectedRoute>} />
-        <Route path="/admin" element={<ProtectedRoute><AppLayout><AdminPortal /></AppLayout></ProtectedRoute>} />
-
-        {/* Catch-all → landing page */}
+        <Route path="/price-book"  element={<ProtectedRoute><AppLayout><PriceBook /></AppLayout></ProtectedRoute>} />
+        <Route path="/settings"    element={<ProtectedRoute><AppLayout><Settings /></AppLayout></ProtectedRoute>} />
+        <Route path="/admin"       element={<ProtectedRoute><AppLayout><AdminPortal /></AppLayout></ProtectedRoute>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>

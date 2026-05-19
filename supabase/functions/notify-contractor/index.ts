@@ -53,8 +53,8 @@ serve(async (req) => {
   <style>
     body { font-family: 'Helvetica Neue', Arial, sans-serif; background: #F8FAFC; margin: 0; padding: 0; }
     .wrapper { max-width: 580px; margin: 40px auto; background: white; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.08); }
-    .header { background: #0F172A; padding: 32px 40px; }
-    .header-title { color: #4F46E5; font-size: 22px; font-weight: 700; }
+    .header { background: #1C2B5C; padding: 32px 40px; }
+    .header-title { color: #C07840; font-size: 22px; font-weight: 700; }
     .header-sub { color: #94A3B8; font-size: 12px; margin-top: 4px; }
     .badge { display: inline-block; padding: 6px 14px; border-radius: 20px; font-size: 13px; font-weight: 700; margin: 24px 40px 0; }
     .badge-approved { background: #D1FAE5; color: #059669; }
@@ -64,14 +64,14 @@ serve(async (req) => {
     .info-label { color: #94A3B8; font-weight: 600; }
     .info-value { color: #1E293B; font-weight: 600; text-align: right; }
     .message-box { background: #F8FAFC; border-left: 3px solid ${isApproval ? "#059669" : "#D97706"}; border-radius: 0 8px 8px 0; padding: 14px 16px; margin: 20px 0; font-size: 13px; color: #475569; line-height: 1.6; }
-    .cta { display: block; text-align: center; background: #4F46E5; color: white; text-decoration: none; padding: 14px 28px; border-radius: 10px; font-weight: 700; font-size: 14px; margin: 24px 0 0; }
+    .cta { display: block; text-align: center; background: #C07840; color: white; text-decoration: none; padding: 14px 28px; border-radius: 10px; font-weight: 700; font-size: 14px; margin: 24px 0 0; }
     .footer { background: #F8FAFC; border-top: 1px solid #E2E8F0; padding: 16px 40px; text-align: center; font-size: 11px; color: #94A3B8; }
   </style>
 </head>
 <body>
   <div class="wrapper">
     <div class="header">
-      <div class="header-title">ZenBid Pro</div>
+      <div class="header-title">PeakEstimator</div>
       <div class="header-sub">Proposal Notification</div>
     </div>
 
@@ -88,7 +88,7 @@ serve(async (req) => {
           ? "Your client has approved the bid. You can now proceed with the project."
           : "Your client has requested some changes to the proposal."}
       </p>
-
+ 
       <div class="info-row"><span class="info-label">Project</span><span class="info-value">${project.name}</span></div>
       <div class="info-row"><span class="info-label">Client</span><span class="info-value">${clientName || project.client_name || "—"}</span></div>
       <div class="info-row"><span class="info-label">Date</span><span class="info-value">${approvalDate}</span></div>
@@ -103,7 +103,7 @@ serve(async (req) => {
     </div>
 
     <div class="footer">
-      ${project.company_name || "ZenBid Pro"} · Powered by ZenBid Pro · ${new Date().getFullYear()}
+      ${project.company_name || "PeakEstimator"} · Powered by PeakEstimator · ${new Date().getFullYear()}
     </div>
   </div>
 </body>
@@ -128,7 +128,7 @@ serve(async (req) => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          from: `ZenBid Pro <notifications@zenbid.pro>`,
+          from: `PeakEstimator <notifications@peakestimator.com>`,
           to: [contractorEmail],
           subject,
           html: htmlBody,

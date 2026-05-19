@@ -176,7 +176,7 @@ export default function AdminPortal() {
 
         <button
           onClick={() => setShowInviteModal(true)}
-          className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm px-5 py-3 rounded-2xl flex items-center gap-2 shadow-lg shadow-indigo-200 transition-all hover:-translate-y-0.5"
+          className="bg-navy hover:bg-navy-700 text-white font-bold text-sm px-5 py-3 rounded-2xl flex items-center gap-2 shadow-lg shadow-navy/20 transition-all hover:-translate-y-0.5"
         >
           <Plus className="w-4 h-4" />
           Send Direct Invitation
@@ -189,7 +189,7 @@ export default function AdminPortal() {
           <button
             onClick={() => setActiveTab('members')}
             className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm transition-all w-full sm:w-auto justify-center ${
-              activeTab === 'members' ? 'bg-indigo-50 text-indigo-700 shadow-sm' : 'text-slate-500 hover:text-slate-800'
+              activeTab === 'members' ? 'bg-navy-50 text-navy-700 shadow-sm' : 'text-slate-500 hover:text-slate-800'
             }`}
           >
             <Users className="w-4 h-4" />
@@ -198,7 +198,7 @@ export default function AdminPortal() {
           <button
             onClick={() => setActiveTab('waitlist')}
             className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm transition-all w-full sm:w-auto justify-center ${
-              activeTab === 'waitlist' ? 'bg-indigo-50 text-indigo-700 shadow-sm' : 'text-slate-500 hover:text-slate-800'
+              activeTab === 'waitlist' ? 'bg-navy-50 text-navy-700 shadow-sm' : 'text-slate-500 hover:text-slate-800'
             }`}
           >
             <Mail className="w-4 h-4" />
@@ -213,7 +213,7 @@ export default function AdminPortal() {
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="Search email, name, company..."
-            className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:bg-white transition-all"
+            className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-copper-500/20 focus:border-copper-400 focus:bg-white transition-all"
           />
         </div>
       </div>
@@ -221,7 +221,7 @@ export default function AdminPortal() {
       {/* Content */}
       {loading ? (
         <div className="h-64 flex items-center justify-center">
-          <div className="w-8 h-8 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+          <div className="w-8 h-8 border-4 border-copper-500 border-t-transparent rounded-full animate-spin" />
         </div>
       ) : activeTab === 'members' ? (
         <div className="bg-white border border-slate-100 rounded-3xl overflow-hidden shadow-sm">
@@ -305,7 +305,7 @@ export default function AdminPortal() {
                     </td>
                     <td className="py-4 px-6 font-medium text-slate-600">{w.email}</td>
                     <td className="py-4 px-6">
-                      <span className="bg-indigo-50 text-indigo-700 text-xs font-bold px-2.5 py-1 rounded-lg border border-indigo-100 capitalize">
+                      <span className="bg-copper-50 text-copper-700 text-xs font-bold px-2.5 py-1 rounded-lg border border-copper-100 capitalize">
                         {w.trade || 'General'}
                       </span>
                     </td>
@@ -340,7 +340,7 @@ export default function AdminPortal() {
         <div className="fixed inset-0 bg-slate-950/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl p-8 max-w-md w-full border border-slate-100 shadow-2xl animate-in fade-in zoom-in duration-150">
             <div className="flex items-center gap-3 mb-6">
-              <div className="w-12 h-12 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600 flex-shrink-0">
+              <div className="w-12 h-12 bg-navy-50 rounded-2xl flex items-center justify-center text-navy-600 flex-shrink-0">
                 <UserCheck className="w-6 h-6" />
               </div>
               <div>
@@ -358,7 +358,7 @@ export default function AdminPortal() {
                   value={inviteEmail}
                   onChange={e => setInviteEmail(e.target.value)}
                   placeholder="contractor@company.com"
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:bg-white transition-all"
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-copper-500/20 focus:border-copper-400 focus:bg-white transition-all"
                 />
               </div>
 
@@ -369,7 +369,7 @@ export default function AdminPortal() {
                   value={inviteName}
                   onChange={e => setInviteName(e.target.value)}
                   placeholder="John Smith"
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:bg-white transition-all"
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-copper-500/20 focus:border-copper-400 focus:bg-white transition-all"
                 />
               </div>
 
@@ -380,7 +380,7 @@ export default function AdminPortal() {
                   value={inviteCompany}
                   onChange={e => setInviteCompany(e.target.value)}
                   placeholder="Smith Roofing LLC"
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:bg-white transition-all"
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-copper-500/20 focus:border-copper-400 focus:bg-white transition-all"
                 />
               </div>
 
@@ -395,7 +395,7 @@ export default function AdminPortal() {
                 <button
                   type="submit"
                   disabled={inviting}
-                  className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm px-6 py-2.5 rounded-xl transition-all shadow-md shadow-indigo-200 hover:-translate-y-0.5 disabled:opacity-50 flex items-center gap-2"
+                  className="bg-copper hover:bg-copper-600 text-white font-bold text-sm px-6 py-2.5 rounded-xl transition-all shadow-md shadow-copper-200/50 hover:-translate-y-0.5 disabled:opacity-50 flex items-center gap-2"
                 >
                   {inviting ? (
                     <>

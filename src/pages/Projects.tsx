@@ -52,7 +52,7 @@ export default function Projects() {
         <button
           id="projects-new-bid"
           onClick={() => setShowModal(true)}
-          className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-semibold text-sm transition-all shadow-lg shadow-indigo-200"
+          className="flex items-center gap-2 px-5 py-2.5 bg-copper hover:bg-copper-600 text-white rounded-xl font-semibold text-sm transition-all shadow-lg shadow-copper-200/50"
         >
           <Plus className="w-4 h-4" />
           New Bid
@@ -69,7 +69,7 @@ export default function Projects() {
             placeholder="Search by name or client..."
             value={search}
             onChange={e => setSearch(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm text-slate-800 focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 transition-all shadow-sm"
+            className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm text-slate-800 focus:ring-2 focus:ring-copper-500/20 focus:border-copper-400 transition-all shadow-sm"
           />
         </div>
         <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-xl p-1 shadow-sm">
@@ -79,7 +79,7 @@ export default function Projects() {
               onClick={() => setStatusFilter(tab.value)}
               className={`px-3 py-1.5 rounded-lg text-xs font-semibold capitalize transition-all ${
                 statusFilter === tab.value
-                  ? 'bg-indigo-600 text-white shadow-sm'
+                  ? 'bg-copper text-white shadow-sm shadow-copper-200/40'
                   : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
               }`}
             >
@@ -93,7 +93,7 @@ export default function Projects() {
       <div className="bg-white rounded-2xl border border-slate-100 shadow-card overflow-hidden">
         {loading ? (
           <div className="flex items-center justify-center py-20">
-            <div className="w-8 h-8 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+            <div className="w-8 h-8 border-4 border-copper-500 border-t-transparent rounded-full animate-spin" />
           </div>
         ) : filtered.length === 0 ? (
           <div className="py-20 text-center">
@@ -104,7 +104,7 @@ export default function Projects() {
             {!search && statusFilter === 'all' && (
               <button
                 onClick={() => setShowModal(true)}
-                className="mt-4 px-5 py-2 bg-indigo-600 text-white rounded-xl text-sm font-semibold hover:bg-indigo-700 transition-colors"
+                className="mt-4 px-5 py-2 bg-copper text-white rounded-xl text-sm font-semibold hover:bg-copper-600 transition-colors shadow-md shadow-copper-200/50"
               >
                 Create First Project
               </button>

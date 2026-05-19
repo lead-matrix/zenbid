@@ -94,8 +94,8 @@ export default function TotalsSidebar({
           )}
 
           {/* Total */}
-          <div className="mt-2 pt-3 border-t-2 border-indigo-100">
-            <div className="bg-indigo-600 rounded-xl px-4 py-3 flex justify-between items-center">
+          <div className="mt-2 pt-3 border-t-2 border-copper-100">
+            <div className="bg-navy rounded-xl px-4 py-3 flex justify-between items-center">
               <span className="text-sm font-bold text-white">TOTAL</span>
               <span className="text-lg font-bold text-white">{formatCurrency(total)}</span>
             </div>
@@ -109,7 +109,7 @@ export default function TotalsSidebar({
           id="export-pdf-btn"
           onClick={onExportPDF}
           disabled={exportingPDF}
-          className="w-full flex items-center justify-center gap-2 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-semibold transition-all shadow-md shadow-indigo-200 disabled:opacity-60"
+          className="w-full flex items-center justify-center gap-2 py-2.5 bg-copper hover:bg-copper-600 text-white rounded-xl text-sm font-semibold transition-all shadow-md shadow-copper-200 disabled:opacity-60"
         >
           {exportingPDF ? (
             <span className="flex items-center gap-2">
@@ -138,7 +138,7 @@ export default function TotalsSidebar({
           onChange={e => onNotesChange(e.target.value)}
           rows={5}
           placeholder="Add project notes, scope details, or terms..."
-          className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700 focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 transition-all resize-none"
+          className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700 focus:ring-2 focus:ring-copper-200 focus:border-copper-400 transition-all resize-none"
         />
         <p className="text-xs text-slate-400 mt-1.5">Auto-saved as you type</p>
       </div>

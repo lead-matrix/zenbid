@@ -5,13 +5,13 @@ import { toast } from 'sonner';
 import { useProject } from '../hooks/useProjects';
 import { useProjectItems } from '../hooks/useProjectItems';
 import { calcTotals } from '../lib/calculations';
+import { generateAndPrint } from '../lib/pdfGenerator';
 import LineItemsTable from '../components/estimator/LineItemsTable';
 import TotalsSidebar from '../components/estimator/TotalsSidebar';
 import PriceBookDrawer from '../components/estimator/PriceBookDrawer';
 import MarkupSettings from '../components/estimator/MarkupSettings';
 import type { Project, StatusType, ProjectItem } from '../types';
 import { TRADE_EMOJIS } from '../types';
-import { supabase } from '../api/supabase';
 
 const STATUSES: StatusType[] = ['lead', 'bidding', 'sent', 'approved', 'won', 'lost'];
 
@@ -100,52 +100,24 @@ export default function EstimatorWorkspace() {
     toast.success('Client link copied to clipboard!');
   };
 
-  const handleExportPDF = async () => {
+  const handleExportPDF = () => {
     if (!project) return;
     setExportingPDF(true);
-
     try {
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-      const { data: { session } } = await supabase.auth.getSession();
-
-      const response = await fetch(`${supabaseUrl}/functions/v1/generate-pdf`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session?.access_token || anonKey}`,
-          'apikey': anonKey,
-        },
-        body: JSON.stringify({ projectId: project.id }),
-      });
-
-      if (!response.ok) {
-        throw new Error('PDF generation failed');
-      }
-
-      // Edge function returns HTML with auto-print — open in a new tab
-      const html = await response.text();
-      const blob = new Blob([html], { type: 'text/html; charset=utf-8' });
-      const url = URL.createObjectURL(blob);
-      const printWindow = window.open(url, '_blank');
-      if (!printWindow) {
-        toast.error('Pop-up blocked. Please allow pop-ups for this site.');
-      } else {
-        toast.success('Print dialog opening…');
-        // Cleanup URL after print window loads
-        setTimeout(() => URL.revokeObjectURL(url), 30000);
-      }
+      generateAndPrint(project, items, totals);
+      toast.success('Print dialog opening…');
     } catch {
-      toast.error('PDF generation failed. Check edge function deployment.');
+      toast.error('Could not open print dialog. Please allow pop-ups.');
     } finally {
-      setExportingPDF(false);
+      // Reset spinner after a short delay
+      setTimeout(() => setExportingPDF(false), 1500);
     }
   };
 
   if (projLoading || itemsLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="w-8 h-8 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+        <div className="w-8 h-8 border-4 border-copper-500 border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
@@ -155,7 +127,7 @@ export default function EstimatorWorkspace() {
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
           <p className="text-slate-500">Project not found</p>
-          <button onClick={() => navigate('/projects')} className="mt-3 text-indigo-600 text-sm font-medium">
+          <button onClick={() => navigate('/projects')} className="mt-3 text-copper hover:text-copper-600 text-sm font-semibold">
             ← Back to projects
           </button>
         </div>
@@ -200,7 +172,7 @@ export default function EstimatorWorkspace() {
                   <button
                     key={s}
                     onClick={() => handleStatusChange(s)}
-                    className={`w-full text-left px-3.5 py-2 text-xs font-semibold capitalize hover:bg-slate-50 transition-colors ${project.status === s ? 'text-indigo-600 bg-indigo-50' : 'text-slate-700'}`}
+                    className={`w-full text-left px-3.5 py-2 text-xs font-semibold capitalize hover:bg-slate-50 transition-colors ${project.status === s ? 'text-copper bg-copper-50' : 'text-slate-700'}`}
                   >
                     {s}
                   </button>
@@ -221,7 +193,7 @@ export default function EstimatorWorkspace() {
               id="export-pdf-topbar"
               onClick={handleExportPDF}
               disabled={exportingPDF}
-              className="flex items-center gap-1.5 px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold transition-all shadow-md shadow-indigo-200 disabled:opacity-60"
+              className="flex items-center gap-1.5 px-3.5 py-2 bg-copper hover:bg-copper-600 text-white rounded-xl text-xs font-semibold transition-all shadow-md shadow-copper-200 disabled:opacity-60"
             >
               {exportingPDF ? 'Generating...' : '📄 Export PDF'}
             </button>
@@ -229,10 +201,10 @@ export default function EstimatorWorkspace() {
         </div>
       </div>
 
-      {/* Main content */}
-      <div className="flex-1 grid grid-cols-3 gap-5 p-6 max-w-7xl w-full mx-auto">
-        {/* Left: Line items */}
-        <div className="col-span-2 space-y-4">
+      {/* Main content — single col on mobile, 3-col on desktop */}
+      <div className="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-5 p-4 sm:p-6 max-w-7xl w-full mx-auto">
+        {/* Line items */}
+        <div className="col-span-1 lg:col-span-2 space-y-4">
           <LineItemsTable
             items={items}
             onAdd={handleAddItem}
@@ -248,9 +220,9 @@ export default function EstimatorWorkspace() {
           />
         </div>
 
-        {/* Right: Sticky totals sidebar */}
+        {/* Totals sidebar — stacks below on mobile, sticky column on desktop */}
         <div className="col-span-1">
-          <div className="sticky top-[72px]">
+          <div className="lg:sticky lg:top-[72px]">
             <TotalsSidebar
               totals={totals}
               notes={notes}

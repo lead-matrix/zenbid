@@ -94,7 +94,7 @@ export default function AddProjectModal({ onClose, onCreate }: Props) {
               onChange={handleChange}
               required
               placeholder="e.g. Office Rewire – Suite 400"
-              className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-800 focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 transition-all"
+              className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-800 focus:ring-2 focus:ring-copper-200 focus:border-copper-400 transition-all"
             />
           </div>
 
@@ -109,7 +109,7 @@ export default function AddProjectModal({ onClose, onCreate }: Props) {
                   onClick={() => setForm(prev => ({ ...prev, trade: t.value }))}
                   className={`flex flex-col items-center gap-1 py-2.5 px-2 rounded-xl border text-xs font-medium transition-all ${
                     form.trade === t.value
-                      ? 'border-indigo-400 bg-indigo-50 text-indigo-700'
+                      ? 'border-copper bg-copper-50 text-copper font-semibold shadow-sm shadow-copper-50'
                       : 'border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100'
                   }`}
                 >
@@ -132,7 +132,7 @@ export default function AddProjectModal({ onClose, onCreate }: Props) {
                 onChange={handleChange}
                 required
                 placeholder="John Doe"
-                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-800 focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 transition-all"
+                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-800 focus:ring-2 focus:ring-copper-200 focus:border-copper-400 transition-all"
               />
             </div>
             <div>
@@ -143,7 +143,7 @@ export default function AddProjectModal({ onClose, onCreate }: Props) {
                 value={form.client_phone}
                 onChange={handleChange}
                 placeholder="(555) 000-0000"
-                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-800 focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 transition-all"
+                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-800 focus:ring-2 focus:ring-copper-200 focus:border-copper-400 transition-all"
               />
             </div>
           </div>
@@ -156,7 +156,7 @@ export default function AddProjectModal({ onClose, onCreate }: Props) {
               value={form.client_email}
               onChange={handleChange}
               placeholder="client@email.com"
-              className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-800 focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 transition-all"
+              className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-800 focus:ring-2 focus:ring-copper-200 focus:border-copper-400 transition-all"
             />
           </div>
 
@@ -168,7 +168,7 @@ export default function AddProjectModal({ onClose, onCreate }: Props) {
               value={form.project_address}
               onChange={handleChange}
               placeholder="123 Main St, City, State"
-              className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-800 focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 transition-all"
+              className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-800 focus:ring-2 focus:ring-copper-200 focus:border-copper-400 transition-all"
             />
           </div>
 
@@ -180,7 +180,7 @@ export default function AddProjectModal({ onClose, onCreate }: Props) {
                 type="date"
                 value={form.start_date}
                 onChange={handleChange}
-                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-800 focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 transition-all"
+                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-800 focus:ring-2 focus:ring-copper-200 focus:border-copper-400 transition-all"
               />
             </div>
             <div>
@@ -190,7 +190,7 @@ export default function AddProjectModal({ onClose, onCreate }: Props) {
                 type="date"
                 value={form.valid_until}
                 onChange={handleChange}
-                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-800 focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 transition-all"
+                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-800 focus:ring-2 focus:ring-copper-200 focus:border-copper-400 transition-all"
               />
             </div>
           </div>
@@ -203,7 +203,7 @@ export default function AddProjectModal({ onClose, onCreate }: Props) {
               onChange={handleChange}
               rows={3}
               placeholder="Describe the scope of work..."
-              className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-800 focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 transition-all resize-none"
+              className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-800 focus:ring-2 focus:ring-copper-200 focus:border-copper-400 transition-all resize-none"
             />
           </div>
         </form>
@@ -222,7 +222,7 @@ export default function AddProjectModal({ onClose, onCreate }: Props) {
             type="button"
             onClick={handleSubmit as unknown as React.MouseEventHandler}
             disabled={loading || !form.name || !form.client_name}
-            className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-semibold transition-all shadow-md shadow-indigo-200 disabled:opacity-50"
+            className="px-5 py-2.5 bg-copper hover:bg-copper-600 text-white rounded-xl text-sm font-semibold transition-all shadow-md shadow-copper-200 disabled:opacity-50"
           >
             {loading ? 'Creating...' : 'Create Project'}
           </button>

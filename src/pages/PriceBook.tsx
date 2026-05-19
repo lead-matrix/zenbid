@@ -77,7 +77,7 @@ export default function PriceBook() {
         <button
           id="add-price-book-item"
           onClick={() => { setShowForm(true); setEditingId(null); setFormData(BLANK_ITEM); }}
-          className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-semibold text-sm transition-all shadow-lg shadow-indigo-200"
+          className="flex items-center gap-2 px-5 py-2.5 bg-copper hover:bg-copper-600 text-white rounded-xl font-semibold text-sm transition-all shadow-lg shadow-copper-200/50"
         >
           <Plus className="w-4 h-4" />
           Add Item
@@ -86,8 +86,8 @@ export default function PriceBook() {
 
       {/* Add form */}
       {showForm && (
-        <div className="bg-indigo-50 border border-indigo-100 rounded-2xl p-5 mb-5 animate-scale-in">
-          <h3 className="text-sm font-bold text-indigo-800 mb-4">New Price Book Item</h3>
+        <div className="bg-copper-50/60 border border-copper-100/50 rounded-2xl p-5 mb-5 animate-scale-in">
+          <h3 className="text-sm font-bold text-copper-800 mb-4">New Price Book Item</h3>
           <ItemForm data={formData} onChange={setFormData} onSave={handleSave} onCancel={handleCancel} />
         </div>
       )}
@@ -101,14 +101,14 @@ export default function PriceBook() {
             placeholder="Search price book..."
             value={search}
             onChange={e => setSearch(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm text-slate-800 focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 transition-all shadow-sm"
+            className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm text-slate-800 focus:ring-2 focus:ring-copper-500/20 focus:border-copper-400 transition-all shadow-sm"
           />
         </div>
 
         <select
           value={tradeFilter}
           onChange={e => setTradeFilter(e.target.value as TradeFilter)}
-          className="px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-sm text-slate-700 focus:ring-2 focus:ring-indigo-200 shadow-sm"
+          className="px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-sm text-slate-700 focus:ring-2 focus:ring-copper-500/20 shadow-sm"
         >
           <option value="all">All Trades</option>
           {TRADES.filter(t => t !== 'all').map(t => (
@@ -124,7 +124,7 @@ export default function PriceBook() {
               key={c}
               onClick={() => setCategoryFilter(c)}
               className={`px-3 py-1.5 rounded-lg text-xs font-semibold capitalize transition-all ${
-                categoryFilter === c ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:text-slate-700'
+                categoryFilter === c ? 'bg-copper text-white shadow-sm shadow-copper-200/40' : 'text-slate-500 hover:text-slate-700'
               }`}
             >
               {c}
@@ -148,7 +148,7 @@ export default function PriceBook() {
 
         {loading ? (
           <div className="py-20 flex justify-center">
-            <div className="w-8 h-8 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+            <div className="w-8 h-8 border-4 border-copper-500 border-t-transparent rounded-full animate-spin" />
           </div>
         ) : filtered.length === 0 ? (
           <div className="py-20 text-center text-slate-400 text-sm">No items found</div>
@@ -156,7 +156,7 @@ export default function PriceBook() {
           <div className="divide-y divide-slate-50">
             {filtered.map(item => (
               editingId === item.id ? (
-                <div key={item.id} className="px-5 py-4 bg-indigo-50/50">
+                <div key={item.id} className="px-5 py-4 bg-copper-50/20 border-y border-copper-100/30">
                   <ItemForm data={formData} onChange={setFormData} onSave={handleSave} onCancel={handleCancel} />
                 </div>
               ) : (
@@ -193,7 +193,7 @@ export default function PriceBook() {
                       <>
                         <button
                           onClick={() => handleEdit(item)}
-                          className="opacity-0 group-hover:opacity-100 p-1 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all"
+                          className="opacity-0 group-hover:opacity-100 p-1 text-slate-400 hover:text-copper hover:bg-copper-50 rounded-lg transition-all"
                         >
                           <Pencil className="w-3.5 h-3.5" />
                         </button>
@@ -227,7 +227,7 @@ function ItemForm({
   onSave: () => void;
   onCancel: () => void;
 }) {
-  const input = 'px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-800 focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 transition-all';
+  const input = 'px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-800 focus:ring-2 focus:ring-copper-500/20 focus:border-copper-400 transition-all';
 
   return (
     <div className="space-y-3">
@@ -320,7 +320,7 @@ function ItemForm({
         </button>
         <button
           onClick={onSave}
-          className="flex items-center gap-1.5 px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-semibold hover:bg-indigo-700 transition-all shadow-md shadow-indigo-200"
+          className="flex items-center gap-1.5 px-4 py-2 bg-copper text-white rounded-lg text-sm font-semibold hover:bg-copper-600 transition-all shadow-md shadow-copper-200/50"
         >
           <Check className="w-3.5 h-3.5" /> Save Item
         </button>

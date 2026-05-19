@@ -64,7 +64,7 @@ export default function LineItemsTable({ items, onAdd, onUpdate, onDelete, onReo
           <button
             id="add-line-item"
             onClick={onAdd}
-            className="flex items-center gap-1.5 px-3.5 py-1.5 bg-indigo-600 text-white rounded-lg text-xs font-semibold hover:bg-indigo-700 transition-all shadow-sm"
+            className="flex items-center gap-1.5 px-3.5 py-1.5 bg-copper text-white rounded-lg text-xs font-semibold hover:bg-copper-600 transition-all shadow-sm shadow-copper-100"
           >
             <Plus className="w-3.5 h-3.5" />
             Add Item
@@ -110,7 +110,7 @@ export default function LineItemsTable({ items, onAdd, onUpdate, onDelete, onReo
         <div className="px-5 py-3 border-t border-slate-100 bg-slate-50/50">
           <button
             onClick={onAdd}
-            className="flex items-center gap-1.5 text-xs text-indigo-600 font-semibold hover:text-indigo-700 transition-colors"
+            className="flex items-center gap-1.5 text-xs text-copper font-semibold hover:text-copper-600 transition-colors"
           >
             <Plus className="w-3.5 h-3.5" />
             Add another item
@@ -163,7 +163,7 @@ function SortableRow({
           value={item.description}
           onChange={e => onUpdate(item.id, { description: e.target.value })}
           placeholder="Item description..."
-          className="w-full px-2 py-1.5 text-sm text-slate-800 bg-transparent border border-transparent hover:border-slate-200 focus:border-indigo-300 focus:bg-white rounded-lg transition-all focus:ring-1 focus:ring-indigo-200"
+          className="w-full px-2 py-1.5 text-sm text-slate-800 bg-transparent border border-transparent hover:border-slate-200 focus:border-copper-300 focus:bg-white rounded-lg transition-all focus:ring-1 focus:ring-copper-200"
         />
       </div>
 
@@ -172,7 +172,7 @@ function SortableRow({
         <select
           value={item.category}
           onChange={e => onUpdate(item.id, { category: e.target.value as CategoryType })}
-          className={`w-full px-2 py-1.5 text-xs font-semibold rounded-lg border border-transparent focus:border-indigo-300 focus:ring-1 focus:ring-indigo-200 transition-all cursor-pointer ${CATEGORY_COLORS[item.category]}`}
+          className={`w-full px-2 py-1.5 text-xs font-semibold rounded-lg border border-transparent focus:border-copper-300 focus:ring-1 focus:ring-copper-200 transition-all cursor-pointer ${CATEGORY_COLORS[item.category]}`}
         >
           {CATEGORIES.map(c => (
             <option key={c} value={c} className="bg-white text-slate-800 font-normal">
@@ -190,7 +190,7 @@ function SortableRow({
           onChange={e => onUpdate(item.id, { quantity: parseFloat(e.target.value) || 0 })}
           min="0"
           step="0.01"
-          className="w-full px-2 py-1.5 text-sm text-center text-slate-800 bg-transparent border border-transparent hover:border-slate-200 focus:border-indigo-300 focus:bg-white rounded-lg transition-all focus:ring-1 focus:ring-indigo-200"
+          className="w-full px-2 py-1.5 text-sm text-center text-slate-800 bg-transparent border border-transparent hover:border-slate-200 focus:border-copper-300 focus:bg-white rounded-lg transition-all focus:ring-1 focus:ring-copper-200"
         />
       </div>
 
@@ -199,7 +199,7 @@ function SortableRow({
         <select
           value={item.unit}
           onChange={e => onUpdate(item.id, { unit: e.target.value })}
-          className="w-full px-1 py-1.5 text-xs text-slate-600 bg-transparent border border-transparent hover:border-slate-200 focus:border-indigo-300 focus:bg-white rounded-lg transition-all cursor-pointer"
+          className="w-full px-1 py-1.5 text-xs text-slate-600 bg-transparent border border-transparent hover:border-slate-200 focus:border-copper-300 focus:bg-white rounded-lg transition-all cursor-pointer"
         >
           {UNITS.map(u => (
             <option key={u} value={u}>{u}</option>
@@ -217,7 +217,7 @@ function SortableRow({
             onChange={e => onUpdate(item.id, { unit_price: parseFloat(e.target.value) || 0 })}
             min="0"
             step="0.01"
-            className="w-full pl-5 pr-2 py-1.5 text-sm text-slate-800 bg-transparent border border-transparent hover:border-slate-200 focus:border-indigo-300 focus:bg-white rounded-lg transition-all focus:ring-1 focus:ring-indigo-200"
+            className="w-full pl-5 pr-2 py-1.5 text-sm text-slate-800 bg-transparent border border-transparent hover:border-slate-200 focus:border-copper-300 focus:bg-white rounded-lg transition-all focus:ring-1 focus:ring-copper-200"
           />
         </div>
       </div>

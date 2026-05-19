@@ -11,14 +11,14 @@ import type { StatusType } from '../types';
 
 const STATUS_COLORS: Record<StatusType, string> = {
   lead: '#94A3B8',
-  bidding: '#6366F1',
-  sent: '#F59E0B',
+  bidding: '#1C2B5C',
+  sent: '#C07840',
   approved: '#10B981',
   won: '#059669',
   lost: '#F43F5E',
 };
 
-const TRADE_COLORS = ['#4F46E5','#10B981','#F59E0B','#F43F5E','#8B5CF6','#06B6D4','#F97316','#64748B'];
+const TRADE_COLORS = ['#1C2B5C','#C07840','#10B981','#F59E0B','#F43F5E','#8B5CF6','#06B6D4','#64748B'];
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -49,7 +49,7 @@ export default function Dashboard() {
   if (loading) {
     return (
       <div className="p-8 flex items-center justify-center min-h-screen">
-        <div className="w-8 h-8 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+        <div className="w-8 h-8 border-4 border-copper-500 border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
@@ -65,7 +65,7 @@ export default function Dashboard() {
         <button
           id="dashboard-new-bid"
           onClick={() => navigate('/projects')}
-          className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-semibold text-sm transition-all shadow-lg shadow-indigo-200"
+          className="flex items-center gap-2 px-5 py-2.5 bg-copper hover:bg-copper-600 text-white rounded-xl font-semibold text-sm transition-all shadow-lg shadow-copper-200/50"
         >
           <Plus className="w-4 h-4" />
           New Bid
@@ -78,7 +78,7 @@ export default function Dashboard() {
           label="Total Pipeline"
           value={formatCurrency(kpis.pipeline)}
           icon={TrendingUp}
-          color="indigo"
+          color="navy"
           sub={`${projects.length} total projects`}
         />
         <KpiCard
@@ -156,7 +156,7 @@ export default function Dashboard() {
           <h2 className="text-sm font-semibold text-slate-800">Recent Projects</h2>
           <button
             onClick={() => navigate('/projects')}
-            className="flex items-center gap-1.5 text-xs text-indigo-600 font-semibold hover:text-indigo-700 transition-colors"
+            className="flex items-center gap-1.5 text-xs text-copper font-semibold hover:text-copper-600 transition-colors"
           >
             View all <ArrowRight className="w-3.5 h-3.5" />
           </button>
@@ -171,7 +171,7 @@ export default function Dashboard() {
             <p className="text-slate-400 text-xs mt-1">Create your first bid to get started</p>
             <button
               onClick={() => navigate('/projects')}
-              className="mt-4 px-5 py-2 bg-indigo-600 text-white rounded-xl text-sm font-semibold hover:bg-indigo-700 transition-colors shadow-md shadow-indigo-200"
+              className="mt-4 px-5 py-2 bg-copper text-white rounded-xl text-sm font-semibold hover:bg-copper-600 transition-colors shadow-md shadow-copper-200/50"
             >
               Create First Bid
             </button>
@@ -214,11 +214,12 @@ function KpiCard({
   label: string;
   value: string;
   icon: React.ElementType;
-  color: 'indigo' | 'emerald' | 'amber' | 'violet';
+  color: 'navy' | 'copper' | 'emerald' | 'amber' | 'violet';
   sub: string;
 }) {
   const colorMap = {
-    indigo: 'bg-indigo-50 text-indigo-600',
+    navy: 'bg-navy-50 text-navy-600',
+    copper: 'bg-copper-50 text-copper-600',
     emerald: 'bg-emerald-50 text-emerald-600',
     amber: 'bg-amber-50 text-amber-600',
     violet: 'bg-violet-50 text-violet-600',

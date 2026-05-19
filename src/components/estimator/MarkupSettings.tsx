@@ -26,7 +26,7 @@ export default function MarkupSettings({ project, onUpdate }: Props) {
       >
         <div className="flex items-center gap-2.5">
           <span className="text-sm font-semibold text-slate-700">Markup & Tax Settings</span>
-          <span className="px-2 py-0.5 bg-indigo-50 text-indigo-600 rounded text-xs font-medium">
+          <span className="px-2 py-0.5 bg-copper-50 text-copper rounded text-xs font-semibold">
             L:{project.labor_markup}% · M:{project.material_markup}% · E:{project.equipment_markup}% · T:{project.tax_rate}%
           </span>
         </div>
@@ -104,7 +104,7 @@ function MarkupField({
           min="0"
           max="100"
           step="0.5"
-          className={`w-full pr-7 pl-3 py-2.5 border rounded-xl text-sm font-semibold focus:ring-2 focus:ring-indigo-200 transition-all ${colorMap[color]}`}
+          className={`w-full pr-7 pl-3 py-2.5 border rounded-xl text-sm font-semibold focus:ring-2 focus:ring-copper-200 transition-all ${colorMap[color]}`}
         />
         <span className={`absolute right-3 top-1/2 -translate-y-1/2 text-sm font-semibold ${color === 'blue' ? 'text-blue-600' : color === 'emerald' ? 'text-emerald-600' : color === 'amber' ? 'text-amber-600' : 'text-violet-600'}`}>%</span>
       </div>

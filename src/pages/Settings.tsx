@@ -69,7 +69,7 @@ export default function Settings() {
     setUploadingLogo(false);
   };
 
-  const inputClass = 'w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-800 focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 transition-all';
+  const inputClass = 'w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-800 focus:ring-2 focus:ring-copper-500/20 focus:border-copper-400 transition-all';
 
   return (
     <div className="p-8 max-w-3xl mx-auto animate-fade-in space-y-6">
@@ -82,8 +82,8 @@ export default function Settings() {
       <div className="bg-white rounded-2xl border border-slate-100 shadow-card">
         <div className="px-6 py-5 border-b border-slate-100">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 bg-indigo-50 rounded-lg flex items-center justify-center">
-              <Building2 className="w-4 h-4 text-indigo-600" />
+            <div className="w-8 h-8 bg-navy-50 rounded-lg flex items-center justify-center">
+              <Building2 className="w-4 h-4 text-navy-600" />
             </div>
             <div>
               <h2 className="text-sm font-bold text-slate-900">Company Profile</h2>
@@ -185,7 +185,7 @@ export default function Settings() {
               id="save-profile-btn"
               onClick={handleSaveProfile}
               disabled={savingProfile}
-              className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-semibold transition-all shadow-md shadow-indigo-200 disabled:opacity-50"
+              className="flex items-center gap-2 px-5 py-2.5 bg-copper hover:bg-copper-600 text-white rounded-xl text-sm font-semibold transition-all shadow-md shadow-copper-200/50 disabled:opacity-50"
             >
               <Save className="w-4 h-4" />
               {savingProfile ? 'Saving...' : 'Save Profile'}
@@ -244,7 +244,7 @@ export default function Settings() {
               id="save-markup-btn"
               onClick={handleSaveMarkup}
               disabled={savingMarkup}
-              className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-semibold transition-all shadow-md shadow-indigo-200 disabled:opacity-50"
+              className="flex items-center gap-2 px-5 py-2.5 bg-copper hover:bg-copper-600 text-white rounded-xl text-sm font-semibold transition-all shadow-md shadow-copper-200/50 disabled:opacity-50"
             >
               <Save className="w-4 h-4" />
               {savingMarkup ? 'Saving...' : 'Save Defaults'}

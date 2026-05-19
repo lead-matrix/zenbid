@@ -1,4 +1,4 @@
--- ZenBid Pro — Initial Schema Migration
+-- PeakEstimator — Initial Schema Migration
 create extension if not exists "pgcrypto";
 
 -- profiles
