@@ -162,10 +162,10 @@ html.dark select {
 }
 
 /* High-specificity background matches (forces correct contrast under both modes) */
-input.bg-white, input.bg-slate-50, input.bg-slate-100,
-.bg-white input, .bg-slate-50 input, .bg-slate-100 input,
-.bg-white textarea, .bg-slate-50 textarea, .bg-slate-100 textarea,
-.bg-white select, .bg-slate-50 select, .bg-slate-100 select {
+html:not(.dark) input.bg-white, html:not(.dark) input.bg-slate-50, html:not(.dark) input.bg-slate-100,
+html:not(.dark) .bg-white input, html:not(.dark) .bg-slate-50 input, html:not(.dark) .bg-slate-100 input,
+html:not(.dark) .bg-white textarea, html:not(.dark) .bg-slate-50 textarea, html:not(.dark) .bg-slate-100 textarea,
+html:not(.dark) .bg-white select, html:not(.dark) .bg-slate-50 select, html:not(.dark) .bg-slate-100 select {
   color: #111827 !important;
 }
 
