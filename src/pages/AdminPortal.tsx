@@ -1,14 +1,21 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '../api/supabase';
 import { useEventBus } from '../hooks/useEventBus';
 import {
   ShieldAlert, UserCheck, Trash2, Mail, Plus, Users, Search,
   Building2, Zap, Heart, AlertCircle, Clock, Check, FileText,
   Star, MessageSquare, Send, Eye, RefreshCw, Shield, HelpCircle,
-  Laptop, Smartphone, ArrowRight, UserPlus
+  Laptop, Smartphone, ArrowRight, UserPlus, Flag, Bot, Bell,
+  LayoutTemplate, ScrollText, CreditCard, ToggleLeft, ToggleRight,
+  Pencil, Save, X, ChevronRight, Activity, Database, TrendingUp,
+  DollarSign, Percent, Timer, Package, CircleCheck, CircleX, Globe
 } from 'lucide-react';
 import { toast } from 'sonner';
-import type { Profile, SupportTicket, TicketResponse, IntegrationRequest, EmailLog } from '../types';
+import { campaignManager, DEFAULT_FOLLOW_UP_RULES, type FollowUpRule } from '../lib/followUpCampaigns';
+import type {
+  Profile, SupportTicket, TicketResponse, IntegrationRequest, EmailLog,
+  FeatureFlag, AIUsageLimit, AuditLog, Template, TemplateItem, Subscription
+} from '../types';
 
 interface WaitlistItem {
   id: string;
@@ -19,11 +26,13 @@ interface WaitlistItem {
   created_at: string;
 }
 
+type AdminTab = 'members' | 'crm' | 'integrations' | 'support' | 'email_sandbox' | 'waitlist' | 'feature_flags' | 'ai_settings' | 'automation' | 'templates' | 'audit_logs' | 'system_logs';
+
 export default function AdminPortal() {
   const { triggerEvent } = useEventBus();
   
   // Tabs
-  const [activeTab, setActiveTab] = useState<'members' | 'crm' | 'integrations' | 'support' | 'email_sandbox' | 'waitlist'>('members');
+  const [activeTab, setActiveTab] = useState<AdminTab>('members');
   
   // Data lists
   const [members, setMembers] = useState<Profile[]>([]);
@@ -61,6 +70,46 @@ export default function AdminPortal() {
   const [previewDevice, setPreviewDevice] = useState<'desktop' | 'mobile'>('desktop');
   const [testRecipient, setTestRecipient] = useState('');
   const [sendingTestEmail, setSendingTestEmail] = useState(false);
+
+  // ── Enterprise Tab State ────────────────────────────────────────────────────
+
+  // Feature Flags
+  const [featureFlags, setFeatureFlags] = useState<FeatureFlag[]>([]);
+  const [flagsLoading, setFlagsLoading] = useState(false);
+
+  // AI Settings
+  const [aiUsage, setAiUsage] = useState<AIUsageLimit | null>(null);
+  const [aiUsageLogs, setAiUsageLogs] = useState<any[]>([]);
+  const [aiSettingsLoading, setAiSettingsLoading] = useState(false);
+  const [editingAiLimit, setEditingAiLimit] = useState(false);
+  const [newMonthlyLimit, setNewMonthlyLimit] = useState('');
+  const [newRpmLimit, setNewRpmLimit] = useState('');
+
+  // Automation / Campaigns
+  const [campaignRules, setCampaignRules] = useState<FollowUpRule[]>([...DEFAULT_FOLLOW_UP_RULES]);
+  const [editingRule, setEditingRule] = useState<FollowUpRule | null>(null);
+  const [systemSettings, setSystemSettings] = useState<any>(null);
+  const [editingFinancing, setEditingFinancing] = useState(false);
+  const [finForm, setFinForm] = useState({ rate: '9.99', maxTerm: '120', minAmount: '1000', enabled: true });
+
+  // Templates
+  const [templates, setTemplates] = useState<Template[]>([]);
+  const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null);
+  const [templateItems, setTemplateItems] = useState<TemplateItem[]>([]);
+  const [templatesLoading, setTemplatesLoading] = useState(false);
+  const [showNewTemplateForm, setShowNewTemplateForm] = useState(false);
+  const [newTemplate, setNewTemplate] = useState({ name: '', description: '', trade: 'general' as string });
+
+  // Audit Logs
+  const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
+  const [auditLogsLoading, setAuditLogsLoading] = useState(false);
+  const [auditPage, setAuditPage] = useState(1);
+  const AUDIT_PAGE_SIZE = 25;
+
+  // System / Subscriptions
+  const [subscription, setSubscription] = useState<Subscription | null>(null);
+  const [usageStats, setUsageStats] = useState<any[]>([]);
+  const [sysLoading, setSysLoading] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -118,6 +167,117 @@ export default function AdminPortal() {
       setLoading(false);
     }
   };
+
+  // ── Enterprise Data Fetchers ──────────────────────────────────────────────
+
+  const fetchFeatureFlags = useCallback(async () => {
+    setFlagsLoading(true);
+    try {
+      const { data } = await supabase
+        .from('feature_flags')
+        .select('*')
+        .order('name', { ascending: true });
+      if (data) setFeatureFlags(data as FeatureFlag[]);
+    } catch (e) {
+      console.error('Failed to load feature flags', e);
+    } finally {
+      setFlagsLoading(false);
+    }
+  }, []);
+
+  const fetchAiSettings = useCallback(async () => {
+    setAiSettingsLoading(true);
+    try {
+      const [limitsRes, logsRes] = await Promise.all([
+        supabase.from('ai_usage_limits').select('*').single(),
+        supabase.from('ai_usage_logs').select('*').order('created_at', { ascending: false }).limit(30)
+      ]);
+      if (limitsRes.data) {
+        setAiUsage(limitsRes.data as AIUsageLimit);
+        setNewMonthlyLimit(String(limitsRes.data.monthly_limit_cents));
+        setNewRpmLimit(String(limitsRes.data.max_requests_per_minute));
+      }
+      if (logsRes.data) setAiUsageLogs(logsRes.data);
+    } catch (e) {
+      console.error('Failed to load AI settings', e);
+    } finally {
+      setAiSettingsLoading(false);
+    }
+  }, []);
+
+  const fetchSystemSettings = useCallback(async () => {
+    try {
+      const { data } = await supabase.from('system_settings').select('*').single();
+      if (data) {
+        setSystemSettings(data);
+        setFinForm({
+          rate: String(data.financing_interest_rate),
+          maxTerm: String(data.financing_max_term_months),
+          minAmount: String(data.financing_min_amount),
+          enabled: data.financing_enabled
+        });
+      }
+    } catch (e) {
+      console.error('Failed to load system settings', e);
+    }
+  }, []);
+
+  const fetchTemplates = useCallback(async () => {
+    setTemplatesLoading(true);
+    try {
+      const { data } = await supabase
+        .from('templates')
+        .select('*')
+        .order('trade', { ascending: true });
+      if (data) setTemplates(data as Template[]);
+    } catch (e) {
+      console.error('Failed to load templates', e);
+    } finally {
+      setTemplatesLoading(false);
+    }
+  }, []);
+
+  const fetchTemplateItems = useCallback(async (templateId: string) => {
+    const { data } = await supabase
+      .from('template_items')
+      .select('*')
+      .eq('template_id', templateId)
+      .order('sort_order', { ascending: true });
+    if (data) setTemplateItems(data as TemplateItem[]);
+  }, []);
+
+  const fetchAuditLogs = useCallback(async (page = 1) => {
+    setAuditLogsLoading(true);
+    try {
+      const from = (page - 1) * AUDIT_PAGE_SIZE;
+      const { data } = await supabase
+        .from('audit_logs')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .range(from, from + AUDIT_PAGE_SIZE - 1);
+      if (data) setAuditLogs(data as AuditLog[]);
+    } catch (e) {
+      console.error('Failed to load audit logs', e);
+    } finally {
+      setAuditLogsLoading(false);
+    }
+  }, []);
+
+  const fetchSystemLogs = useCallback(async () => {
+    setSysLoading(true);
+    try {
+      const [subRes, usageRes] = await Promise.all([
+        supabase.from('subscriptions').select('*').single(),
+        supabase.from('usage_tracking').select('*').order('billing_period_start', { ascending: false })
+      ]);
+      if (subRes.data) setSubscription(subRes.data as Subscription);
+      if (usageRes.data) setUsageStats(usageRes.data);
+    } catch (e) {
+      console.error('Failed to load system logs', e);
+    } finally {
+      setSysLoading(false);
+    }
+  }, []);
 
   const fetchTicketResponses = async (ticketId: string) => {
     const { data, error } = await supabase
@@ -403,6 +563,120 @@ export default function AdminPortal() {
     }
   };
 
+  // ── Enterprise Handlers ──────────────────────────────────────────────────
+
+  const handleToggleFeatureFlag = async (flag: FeatureFlag) => {
+    const newValue = !flag.enabled_globally;
+    try {
+      const { error } = await supabase
+        .from('feature_flags')
+        .update({ enabled_globally: newValue, updated_at: new Date().toISOString() })
+        .eq('id', flag.id);
+      if (error) throw error;
+      setFeatureFlags(prev => prev.map(f => f.id === flag.id ? { ...f, enabled_globally: newValue } : f));
+      toast.success(`"${flag.name}" ${newValue ? 'enabled' : 'disabled'}`);
+    } catch (err: any) {
+      toast.error('Toggle failed: ' + err.message);
+    }
+  };
+
+  const handleSaveAiLimits = async () => {
+    if (!aiUsage) return;
+    try {
+      const { error } = await supabase
+        .from('ai_usage_limits')
+        .update({
+          monthly_limit_cents: parseInt(newMonthlyLimit, 10),
+          max_requests_per_minute: parseInt(newRpmLimit, 10),
+          updated_at: new Date().toISOString()
+        })
+        .eq('organization_id', aiUsage.organization_id);
+      if (error) throw error;
+      setAiUsage(prev => prev ? { ...prev, monthly_limit_cents: parseInt(newMonthlyLimit, 10), max_requests_per_minute: parseInt(newRpmLimit, 10) } : null);
+      setEditingAiLimit(false);
+      toast.success('AI usage limits updated');
+    } catch (err: any) {
+      toast.error('Update failed: ' + err.message);
+    }
+  };
+
+  const handleSaveCampaignRule = async () => {
+    if (!editingRule) return;
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.user) return;
+    const { data: profile } = await supabase.from('profiles').select('organization_id').eq('id', session.user.id).single();
+    const orgId = profile?.organization_id || '';
+    const updatedRules = campaignRules.map(r => r.id === editingRule.id ? editingRule : r);
+    campaignManager.updateRules(orgId, updatedRules);
+    setCampaignRules(updatedRules);
+    setEditingRule(null);
+    toast.success('Campaign rule updated');
+  };
+
+  const handleToggleCampaignRule = async (ruleId: string) => {
+    const updated = campaignRules.map(r => r.id === ruleId ? { ...r, isActive: !r.isActive } : r);
+    const { data: { session } } = await supabase.auth.getSession();
+    const { data: profile } = await supabase.from('profiles').select('organization_id').eq('id', session?.user?.id!).single();
+    const orgId = profile?.organization_id || '';
+    campaignManager.updateRules(orgId, updated);
+    setCampaignRules(updated);
+    toast.success('Campaign rule toggled');
+  };
+
+  const handleSaveFinancingSettings = async () => {
+    try {
+      const { error } = await supabase
+        .from('system_settings')
+        .update({
+          financing_interest_rate: parseFloat(finForm.rate),
+          financing_max_term_months: parseInt(finForm.maxTerm, 10),
+          financing_min_amount: parseFloat(finForm.minAmount),
+          financing_enabled: finForm.enabled,
+          updated_at: new Date().toISOString()
+        })
+        .neq('id', '00000000-0000-0000-0000-000000000000'); // update all rows
+      if (error) throw error;
+      setEditingFinancing(false);
+      toast.success('Financing configuration saved');
+      fetchSystemSettings();
+    } catch (err: any) {
+      toast.error('Save failed: ' + err.message);
+    }
+  };
+
+  const handleCreateTemplate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newTemplate.name.trim()) return;
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const { data: profile } = await supabase.from('profiles').select('organization_id').eq('id', session?.user?.id!).single();
+      const { error } = await supabase.from('templates').insert({
+        name: newTemplate.name,
+        description: newTemplate.description,
+        trade: newTemplate.trade,
+        organization_id: profile?.organization_id,
+        is_global: false
+      });
+      if (error) throw error;
+      setShowNewTemplateForm(false);
+      setNewTemplate({ name: '', description: '', trade: 'general' });
+      toast.success('Template created');
+      fetchTemplates();
+    } catch (err: any) {
+      toast.error('Create failed: ' + err.message);
+    }
+  };
+
+  const handleDeleteTemplate = async (id: string) => {
+    if (!confirm('Delete this template? This cannot be undone.')) return;
+    const { error } = await supabase.from('templates').delete().eq('id', id);
+    if (error) { toast.error(error.message); return; }
+    toast.success('Template deleted');
+    setSelectedTemplate(null);
+    setTemplateItems([]);
+    fetchTemplates();
+  };
+
   // Resend / SMTP Simulated send test preview
   const handleSendTestEmail = async () => {
     if (!testRecipient.trim()) {
@@ -685,32 +959,74 @@ Please assign an administrator immediately to prevent collision and address.`,
         </button>
       </div>
 
-      {/* Tabs */}
-      <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-thin mb-6 border-b border-app-border dark:border-navy-800 pb-2">
-        {[
-          { id: 'members', label: 'Seat Manager', icon: Users },
-          { id: 'crm', label: 'Customer CRM', icon: Star },
-          { id: 'integrations', label: 'Integration Desk', icon: Zap },
-          { id: 'support', label: 'Support Desk', icon: HelpCircle },
-          { id: 'email_sandbox', label: 'Email Sandbox', icon: Mail },
-          { id: 'waitlist', label: 'Waitlist Queue', icon: UserCheck }
-        ].map(tab => {
-          const Icon = tab.icon;
-          return (
-            <button
-              key={tab.id}
-              onClick={() => { setActiveTab(tab.id as any); setSelectedCrmUser(null); setSelectedTicket(null); }}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs transition-all whitespace-nowrap ${
-                activeTab === tab.id 
-                  ? 'bg-slate-100 dark:bg-navy-950 text-slate-900 dark:text-white shadow-sm border border-slate-200 dark:border-navy-800' 
-                  : 'text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
-              }`}
-            >
-              <Icon className="w-4 h-4" />
-              {tab.label}
-            </button>
-          );
-        })}
+      {/* Tabs — split into 2 rows: existing + enterprise */}
+      <div className="mb-6 space-y-2">
+        {/* Row 1: Core Ops */}
+        <div className="flex items-center gap-1 flex-wrap">
+          <span className="text-[9px] font-bold text-slate-400 dark:text-slate-600 uppercase tracking-widest mr-2">Ops</span>
+          {[
+            { id: 'members', label: 'Seat Manager', icon: Users },
+            { id: 'crm', label: 'Customer CRM', icon: Star },
+            { id: 'integrations', label: 'Integration Desk', icon: Zap },
+            { id: 'support', label: 'Support Desk', icon: HelpCircle },
+            { id: 'email_sandbox', label: 'Email Sandbox', icon: Mail },
+            { id: 'waitlist', label: 'Waitlist Queue', icon: UserCheck }
+          ].map(tab => {
+            const Icon = tab.icon;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => { setActiveTab(tab.id as AdminTab); setSelectedCrmUser(null); setSelectedTicket(null); }}
+                className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl font-bold text-[11px] transition-all whitespace-nowrap ${
+                  activeTab === tab.id
+                    ? 'bg-slate-100 dark:bg-navy-950 text-slate-900 dark:text-white shadow-sm border border-slate-200 dark:border-navy-800'
+                    : 'text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
+                }`}
+              >
+                <Icon className="w-3.5 h-3.5" />
+                {tab.label}
+              </button>
+            );
+          })}
+        </div>
+        {/* Row 2: Enterprise Controls */}
+        <div className="flex items-center gap-1 flex-wrap border-t border-slate-100 dark:border-navy-900 pt-2">
+          <span className="text-[9px] font-bold text-copper/80 uppercase tracking-widest mr-2">Enterprise</span>
+          {[
+            { id: 'feature_flags', label: 'Feature Flags', icon: Flag },
+            { id: 'ai_settings', label: 'AI Controls', icon: Bot },
+            { id: 'automation', label: 'Automation', icon: Bell },
+            { id: 'templates', label: 'Templates', icon: LayoutTemplate },
+            { id: 'audit_logs', label: 'Audit Logs', icon: ScrollText },
+            { id: 'system_logs', label: 'System & Billing', icon: CreditCard }
+          ].map(tab => {
+            const Icon = tab.icon;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => {
+                  setActiveTab(tab.id as AdminTab);
+                  setSelectedCrmUser(null);
+                  setSelectedTicket(null);
+                  if (tab.id === 'feature_flags') fetchFeatureFlags();
+                  if (tab.id === 'ai_settings') fetchAiSettings();
+                  if (tab.id === 'automation') fetchSystemSettings();
+                  if (tab.id === 'templates') fetchTemplates();
+                  if (tab.id === 'audit_logs') fetchAuditLogs(1);
+                  if (tab.id === 'system_logs') fetchSystemLogs();
+                }}
+                className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl font-bold text-[11px] transition-all whitespace-nowrap ${
+                  activeTab === tab.id
+                    ? 'bg-copper/10 text-copper shadow-sm border border-copper/20'
+                    : 'text-slate-400 hover:text-copper dark:hover:text-copper'
+                }`}
+              >
+                <Icon className="w-3.5 h-3.5" />
+                {tab.label}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {/* Global Search and Filter */}
@@ -1353,7 +1669,7 @@ Please assign an administrator immediately to prevent collision and address.`,
 
           </div>
         </div>
-      ) : (
+      ) : activeTab === 'waitlist' ? (
         /* TAB 6: WAITLIST QUEUE */
         <div className="bg-white dark:bg-navy border border-app-border dark:border-navy-800 shadow-card rounded-2xl overflow-hidden">
           <div className="overflow-x-auto scrollbar-thin">
@@ -1410,7 +1726,868 @@ Please assign an administrator immediately to prevent collision and address.`,
             </table>
           </div>
         </div>
-      )}
+
+      ) : activeTab === 'feature_flags' ? (
+        /* ═══════════════════════════════════════════════════
+           TAB 7: FEATURE FLAGS & PLATFORM CONTROLS
+        ═══════════════════════════════════════════════════ */
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="font-sora font-extrabold text-slate-900 dark:text-white text-sm flex items-center gap-2">
+                <Flag className="w-4 h-4 text-copper" /> Feature Flag Registry
+              </h2>
+              <p className="text-[11px] text-slate-400 mt-0.5">Toggle platform capabilities per-organization. Changes apply instantly with no redeploy required.</p>
+            </div>
+            <button onClick={fetchFeatureFlags} className="p-2 hover:bg-slate-100 dark:hover:bg-navy-950 rounded-xl transition-all text-slate-400 hover:text-slate-700 dark:hover:text-white">
+              <RefreshCw className="w-4 h-4" />
+            </button>
+          </div>
+
+          {flagsLoading ? (
+            <div className="h-40 flex items-center justify-center"><div className="w-7 h-7 border-4 border-copper border-t-transparent rounded-full animate-spin" /></div>
+          ) : featureFlags.length === 0 ? (
+            <div className="bg-white dark:bg-navy border border-app-border dark:border-navy-800 rounded-2xl p-12 text-center">
+              <Flag className="w-8 h-8 text-slate-300 dark:text-slate-700 mx-auto mb-3" />
+              <p className="text-xs text-slate-400">No feature flags found. Run the latest migration to seed default flags.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {featureFlags.map(flag => (
+                <div key={flag.id} className={`bg-white dark:bg-navy border rounded-2xl p-5 transition-all shadow-card ${
+                  flag.enabled_globally ? 'border-copper/30' : 'border-slate-200 dark:border-navy-800'
+                }`}>
+                  <div className="flex items-start justify-between gap-3 mb-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-bold text-xs text-slate-900 dark:text-white">{flag.name}</span>
+                        <span className={`text-[9px] font-extrabold px-1.5 py-0.5 rounded border uppercase tracking-wider ${
+                          flag.enabled_globally
+                            ? 'bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-950/20 dark:border-emerald-900/30'
+                            : 'bg-slate-100 text-slate-400 border-slate-200 dark:bg-navy-950 dark:border-navy-850'
+                        }`}>
+                          {flag.enabled_globally ? 'Active' : 'Disabled'}
+                        </span>
+                      </div>
+                      {flag.description && (
+                        <p className="text-[10px] text-slate-400 mt-1 leading-relaxed">{flag.description}</p>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => handleToggleFeatureFlag(flag)}
+                      className="flex-shrink-0 transition-all hover:scale-110"
+                      title={flag.enabled_globally ? 'Disable flag' : 'Enable flag'}
+                    >
+                      {flag.enabled_globally
+                        ? <ToggleRight className="w-7 h-7 text-emerald-500" />
+                        : <ToggleLeft className="w-7 h-7 text-slate-300 dark:text-slate-600" />}
+                    </button>
+                  </div>
+                  <div className="border-t border-slate-100 dark:border-navy-900 pt-3 flex items-center justify-between text-[9px] text-slate-400 font-semibold">
+                    <span>Rollout: {flag.rollout_percentage}%</span>
+                    <span>Beta users: {flag.beta_users?.length ?? 0}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+      ) : activeTab === 'ai_settings' ? (
+        /* ═══════════════════════════════════════════════════
+           TAB 8: AI USAGE LIMITS & CONTROLS
+        ═══════════════════════════════════════════════════ */
+        <div className="space-y-6">
+          {/* Header */}
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="font-sora font-extrabold text-slate-900 dark:text-white text-sm flex items-center gap-2">
+                <Bot className="w-4 h-4 text-copper" /> AI Usage Controls
+              </h2>
+              <p className="text-[11px] text-slate-400 mt-0.5">Configure monthly cost caps, rate limits, and inspect per-action AI consumption logs.</p>
+            </div>
+            <button onClick={() => { fetchAiSettings(); }} className="p-2 hover:bg-slate-100 dark:hover:bg-navy-950 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-white transition-all">
+              <RefreshCw className="w-4 h-4" />
+            </button>
+          </div>
+
+          {aiSettingsLoading ? (
+            <div className="h-40 flex items-center justify-center"><div className="w-7 h-7 border-4 border-copper border-t-transparent rounded-full animate-spin" /></div>
+          ) : (
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Left: Limits Card */}
+              <div className="lg:col-span-1 bg-white dark:bg-navy border border-app-border dark:border-navy-800 shadow-card rounded-2xl p-6">
+                <div className="flex items-center justify-between mb-5">
+                  <h3 className="font-sora font-extrabold text-xs text-slate-900 dark:text-white">Usage Limits</h3>
+                  <button
+                    onClick={() => setEditingAiLimit(!editingAiLimit)}
+                    className="p-1.5 hover:bg-copper/10 text-slate-400 hover:text-copper rounded-lg transition-all"
+                  >
+                    {editingAiLimit ? <X className="w-3.5 h-3.5" /> : <Pencil className="w-3.5 h-3.5" />}
+                  </button>
+                </div>
+
+                {aiUsage ? (
+                  <div className="space-y-4">
+                    {/* Monthly Budget */}
+                    <div>
+                      <div className="flex justify-between text-[10px] font-bold text-slate-500 dark:text-slate-400 mb-1.5">
+                        <span>Monthly Budget</span>
+                        <span className="text-copper">${(aiUsage.monthly_usage_cents / 100).toFixed(2)} / ${(aiUsage.monthly_limit_cents / 100).toFixed(2)}</span>
+                      </div>
+                      <div className="w-full bg-slate-100 dark:bg-navy-950 rounded-full h-2">
+                        <div
+                          className="h-2 rounded-full bg-gradient-to-r from-copper to-amber-400 transition-all"
+                          style={{ width: `${Math.min(100, (aiUsage.monthly_usage_cents / aiUsage.monthly_limit_cents) * 100)}%` }}
+                        />
+                      </div>
+                      <p className="text-[9px] text-slate-400 mt-1">{((aiUsage.monthly_usage_cents / aiUsage.monthly_limit_cents) * 100).toFixed(1)}% consumed this cycle</p>
+                    </div>
+
+                    {editingAiLimit ? (
+                      <div className="space-y-3 pt-2">
+                        <div>
+                          <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 block mb-1">Monthly Cap (cents)</label>
+                          <input
+                            type="number"
+                            value={newMonthlyLimit}
+                            onChange={e => setNewMonthlyLimit(e.target.value)}
+                            className="w-full bg-slate-50 dark:bg-navy-950 border border-slate-200 dark:border-navy-850 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-copper"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 block mb-1">Max Requests / Minute</label>
+                          <input
+                            type="number"
+                            value={newRpmLimit}
+                            onChange={e => setNewRpmLimit(e.target.value)}
+                            className="w-full bg-slate-50 dark:bg-navy-950 border border-slate-200 dark:border-navy-850 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-copper"
+                          />
+                        </div>
+                        <button
+                          onClick={handleSaveAiLimits}
+                          className="w-full py-2.5 bg-copper hover:bg-copper-hover text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5"
+                        >
+                          <Save className="w-3.5 h-3.5" /> Save Limits
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="space-y-2 text-xs">
+                        <div className="flex justify-between py-2 border-b border-slate-100 dark:border-navy-900">
+                          <span className="text-slate-500 dark:text-slate-400 font-semibold">Rate Limit</span>
+                          <span className="font-bold text-slate-900 dark:text-white">{aiUsage.max_requests_per_minute} req/min</span>
+                        </div>
+                        <div className="flex justify-between py-2 border-b border-slate-100 dark:border-navy-900">
+                          <span className="text-slate-500 dark:text-slate-400 font-semibold">Last Reset</span>
+                          <span className="font-bold text-slate-900 dark:text-white">{new Date(aiUsage.last_reset_date).toLocaleDateString()}</span>
+                        </div>
+                        <div className="flex justify-between py-2">
+                          <span className="text-slate-500 dark:text-slate-400 font-semibold">Req Counter</span>
+                          <span className="font-bold text-slate-900 dark:text-white">{aiUsage.request_counter}</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-xs text-slate-400 text-center py-6">No AI limit record found.</p>
+                )}
+              </div>
+
+              {/* Right: Usage Logs */}
+              <div className="lg:col-span-2 bg-white dark:bg-navy border border-app-border dark:border-navy-800 shadow-card rounded-2xl overflow-hidden">
+                <div className="px-6 py-4 border-b border-slate-100 dark:border-navy-850 bg-slate-50 dark:bg-navy-950/25">
+                  <h3 className="font-sora font-extrabold text-xs text-slate-900 dark:text-white">Recent AI Invocation Log</h3>
+                </div>
+                <div className="overflow-x-auto scrollbar-thin">
+                  <table className="w-full text-left text-xs min-w-[600px]">
+                    <thead>
+                      <tr className="border-b border-slate-100 dark:border-navy-850 text-[9px] font-bold uppercase tracking-wider text-slate-400">
+                        <th className="py-3 px-5">Action</th>
+                        <th className="py-3 px-5">Provider</th>
+                        <th className="py-3 px-5">Tokens</th>
+                        <th className="py-3 px-5">Cost</th>
+                        <th className="py-3 px-5">Date</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-navy-900">
+                      {aiUsageLogs.length === 0 ? (
+                        <tr><td colSpan={5} className="py-12 text-center text-slate-400">No AI logs recorded yet.</td></tr>
+                      ) : (
+                        aiUsageLogs.map(log => (
+                          <tr key={log.id} className="hover:bg-slate-50/50 dark:hover:bg-navy-950/30">
+                            <td className="py-3 px-5 font-bold text-slate-900 dark:text-white">{log.action}</td>
+                            <td className="py-3 px-5">
+                              <span className="bg-slate-100 dark:bg-navy-950 border border-slate-200 dark:border-navy-850 px-2 py-0.5 rounded text-[9px] font-bold uppercase">{log.provider}</span>
+                            </td>
+                            <td className="py-3 px-5 text-slate-500 dark:text-slate-400 font-semibold">{(log.prompt_tokens || 0) + (log.completion_tokens || 0)}</td>
+                            <td className="py-3 px-5 font-bold text-copper">${Number(log.cost || 0).toFixed(4)}</td>
+                            <td className="py-3 px-5 text-slate-400">{new Date(log.created_at).toLocaleDateString()}</td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+      ) : activeTab === 'automation' ? (
+        /* ═══════════════════════════════════════════════════
+           TAB 9: AUTOMATION SCHEDULER & FINANCING CONFIG
+        ═══════════════════════════════════════════════════ */
+        <div className="space-y-8">
+          {/* Campaign Rules Panel */}
+          <div>
+            <h2 className="font-sora font-extrabold text-slate-900 dark:text-white text-sm flex items-center gap-2 mb-1">
+              <Bell className="w-4 h-4 text-copper" /> Follow-up Campaign Scheduler
+            </h2>
+            <p className="text-[11px] text-slate-400 mb-5">Configure automated proposal follow-up timing, triggers, and email subjects. Rules persist per organization.</p>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {campaignRules.map(rule => (
+                <div
+                  key={rule.id}
+                  className={`bg-white dark:bg-navy border rounded-2xl p-5 shadow-card transition-all ${
+                    rule.isActive ? 'border-copper/25' : 'border-slate-200 dark:border-navy-800 opacity-60'
+                  }`}
+                >
+                  {editingRule?.id === rule.id ? (
+                    /* Inline Edit Form */
+                    <div className="space-y-3 text-xs">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="font-bold text-slate-900 dark:text-white text-xs">Editing Rule</span>
+                        <button onClick={() => setEditingRule(null)} className="p-1 hover:bg-slate-100 dark:hover:bg-navy-950 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white transition-all">
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 block mb-1">Rule Name</label>
+                        <input
+                          value={editingRule.name}
+                          onChange={e => setEditingRule(prev => prev ? { ...prev, name: e.target.value } : null)}
+                          className="w-full bg-slate-50 dark:bg-navy-950 border border-slate-200 dark:border-navy-850 rounded-xl px-3 py-2 text-slate-900 dark:text-white focus:outline-none focus:border-copper"
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 block mb-1">Trigger Event</label>
+                          <select
+                            value={editingRule.triggerEvent}
+                            onChange={e => setEditingRule(prev => prev ? { ...prev, triggerEvent: e.target.value as any } : null)}
+                            className="w-full bg-slate-50 dark:bg-navy-950 border border-slate-200 dark:border-navy-850 rounded-xl px-3 py-2 text-slate-900 dark:text-white focus:outline-none focus:border-copper"
+                          >
+                            <option value="viewed">Viewed</option>
+                            <option value="abandoned">Abandoned</option>
+                            <option value="expired">Expired</option>
+                            <option value="created">Created</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 block mb-1">Delay (hours)</label>
+                          <input
+                            type="number"
+                            value={editingRule.delayHours}
+                            onChange={e => setEditingRule(prev => prev ? { ...prev, delayHours: Number(e.target.value) } : null)}
+                            className="w-full bg-slate-50 dark:bg-navy-950 border border-slate-200 dark:border-navy-850 rounded-xl px-3 py-2 text-slate-900 dark:text-white focus:outline-none focus:border-copper"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 block mb-1">Email Subject</label>
+                        <input
+                          value={editingRule.subject}
+                          onChange={e => setEditingRule(prev => prev ? { ...prev, subject: e.target.value } : null)}
+                          className="w-full bg-slate-50 dark:bg-navy-950 border border-slate-200 dark:border-navy-850 rounded-xl px-3 py-2 text-slate-900 dark:text-white focus:outline-none focus:border-copper"
+                        />
+                      </div>
+                      <button
+                        onClick={handleSaveCampaignRule}
+                        className="w-full py-2 bg-copper hover:bg-copper-hover text-white rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-all"
+                      >
+                        <Save className="w-3.5 h-3.5" /> Save Rule
+                      </button>
+                    </div>
+                  ) : (
+                    /* Display Mode */
+                    <div>
+                      <div className="flex items-start justify-between gap-2 mb-3">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-bold text-xs text-slate-900 dark:text-white">{rule.name}</span>
+                            <span className={`text-[9px] font-extrabold px-1.5 py-0.5 rounded border uppercase tracking-wider ${
+                              rule.isActive
+                                ? 'bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-950/20 dark:border-emerald-900/30'
+                                : 'bg-slate-100 text-slate-400 border-slate-200 dark:bg-navy-950 dark:border-navy-850'
+                            }`}>
+                              {rule.isActive ? 'Active' : 'Paused'}
+                            </span>
+                          </div>
+                          <p className="text-[10px] text-slate-400 mt-0.5">
+                            Trigger: <strong className="text-slate-600 dark:text-slate-300">{rule.triggerEvent}</strong> → after <strong className="text-copper">{rule.delayHours}h</strong>
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-1.5 flex-shrink-0">
+                          <button onClick={() => setEditingRule(rule)} className="p-1.5 hover:bg-copper/10 text-slate-400 hover:text-copper rounded-lg transition-all" title="Edit rule">
+                            <Pencil className="w-3.5 h-3.5" />
+                          </button>
+                          <button onClick={() => handleToggleCampaignRule(rule.id)} className="transition-all hover:scale-110" title={rule.isActive ? 'Pause rule' : 'Activate rule'}>
+                            {rule.isActive ? <ToggleRight className="w-6 h-6 text-emerald-500" /> : <ToggleLeft className="w-6 h-6 text-slate-300 dark:text-slate-600" />}
+                          </button>
+                        </div>
+                      </div>
+                      <div className="bg-slate-50 dark:bg-navy-950 border border-slate-100 dark:border-navy-900 rounded-xl px-3 py-2 text-[10px] text-slate-500 dark:text-slate-400 font-semibold truncate">
+                        Subject: "{rule.subject}"
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Financing Config Panel */}
+          <div className="bg-white dark:bg-navy border border-app-border dark:border-navy-800 shadow-card rounded-2xl p-6">
+            <div className="flex items-center justify-between mb-5">
+              <div>
+                <h3 className="font-sora font-extrabold text-sm text-slate-900 dark:text-white flex items-center gap-2">
+                  <DollarSign className="w-4 h-4 text-copper" /> Global Financing Configuration
+                </h3>
+                <p className="text-[11px] text-slate-400 mt-0.5">Configure interest rate, maximum term, and minimum qualifying estimate value.</p>
+              </div>
+              <button
+                onClick={() => setEditingFinancing(!editingFinancing)}
+                className="flex items-center gap-1.5 px-3 py-1.5 border border-slate-200 dark:border-navy-800 hover:border-copper text-slate-500 dark:text-slate-400 hover:text-copper rounded-xl text-xs font-bold transition-all"
+              >
+                {editingFinancing ? <X className="w-3.5 h-3.5" /> : <Pencil className="w-3.5 h-3.5" />}
+                {editingFinancing ? 'Cancel' : 'Edit Config'}
+              </button>
+            </div>
+
+            {editingFinancing ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 block mb-1.5">Interest Rate (APR %)</label>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={finForm.rate}
+                      onChange={e => setFinForm(p => ({ ...p, rate: e.target.value }))}
+                      className="w-full bg-slate-50 dark:bg-navy-950 border border-slate-200 dark:border-navy-850 rounded-xl pl-3 pr-8 py-2.5 text-slate-900 dark:text-white focus:outline-none focus:border-copper"
+                    />
+                    <Percent className="absolute right-3 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400" />
+                  </div>
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 block mb-1.5">Max Term (months)</label>
+                  <input
+                    type="number"
+                    value={finForm.maxTerm}
+                    onChange={e => setFinForm(p => ({ ...p, maxTerm: e.target.value }))}
+                    className="w-full bg-slate-50 dark:bg-navy-950 border border-slate-200 dark:border-navy-850 rounded-xl px-3 py-2.5 text-slate-900 dark:text-white focus:outline-none focus:border-copper"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 block mb-1.5">Min Qualifying Amount ($)</label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-bold">$</span>
+                    <input
+                      type="number"
+                      value={finForm.minAmount}
+                      onChange={e => setFinForm(p => ({ ...p, minAmount: e.target.value }))}
+                      className="w-full bg-slate-50 dark:bg-navy-950 border border-slate-200 dark:border-navy-850 rounded-xl pl-6 pr-3 py-2.5 text-slate-900 dark:text-white focus:outline-none focus:border-copper"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 block mb-1.5">Financing Module</label>
+                  <button
+                    onClick={() => setFinForm(p => ({ ...p, enabled: !p.enabled }))}
+                    className={`w-full py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-2 border transition-all ${
+                      finForm.enabled
+                        ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-600'
+                        : 'bg-slate-100 dark:bg-navy-950 border-slate-200 dark:border-navy-850 text-slate-400'
+                    }`}
+                  >
+                    {finForm.enabled ? <CircleCheck className="w-3.5 h-3.5" /> : <CircleX className="w-3.5 h-3.5" />}
+                    {finForm.enabled ? 'Enabled' : 'Disabled'}
+                  </button>
+                </div>
+                <div className="sm:col-span-2 lg:col-span-4">
+                  <button
+                    onClick={handleSaveFinancingSettings}
+                    className="px-6 py-2.5 bg-copper hover:bg-copper-hover text-white rounded-xl text-xs font-bold transition-all shadow-md flex items-center gap-1.5"
+                  >
+                    <Save className="w-3.5 h-3.5" /> Save Financing Config
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs">
+                {[
+                  { label: 'APR Interest Rate', value: `${systemSettings?.financing_interest_rate ?? '9.99'}%`, icon: Percent },
+                  { label: 'Max Term', value: `${systemSettings?.financing_max_term_months ?? '120'} months`, icon: Timer },
+                  { label: 'Minimum Amount', value: `$${Number(systemSettings?.financing_min_amount ?? 1000).toLocaleString()}`, icon: DollarSign },
+                  { label: 'Module Status', value: systemSettings?.financing_enabled ? 'Active' : 'Disabled', icon: systemSettings?.financing_enabled ? CircleCheck : CircleX }
+                ].map(stat => {
+                  const StatIcon = stat.icon;
+                  return (
+                    <div key={stat.label} className="bg-slate-50 dark:bg-navy-950 border border-slate-100 dark:border-navy-900 rounded-2xl p-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <StatIcon className="w-3.5 h-3.5 text-copper" />
+                        <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400">{stat.label}</span>
+                      </div>
+                      <span className="font-sora font-extrabold text-slate-900 dark:text-white text-sm">{stat.value}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+
+      ) : activeTab === 'templates' ? (
+        /* ═══════════════════════════════════════════════════
+           TAB 10: GLOBAL TEMPLATES LIBRARY MANAGER
+        ═══════════════════════════════════════════════════ */
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          {/* Left: Template List */}
+          <div className="lg:col-span-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <h2 className="font-sora font-extrabold text-slate-900 dark:text-white text-sm flex items-center gap-2">
+                <LayoutTemplate className="w-4 h-4 text-copper" /> Assembly Templates
+              </h2>
+              <button
+                onClick={() => { setShowNewTemplateForm(!showNewTemplateForm); setSelectedTemplate(null); setTemplateItems([]); }}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold text-xs transition-all border ${
+                  showNewTemplateForm ? 'bg-rose-50 border-rose-200 text-rose-500' : 'bg-copper/10 border-copper/20 text-copper hover:bg-copper hover:text-white'
+                }`}
+              >
+                {showNewTemplateForm ? <X className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
+                {showNewTemplateForm ? 'Cancel' : 'New Template'}
+              </button>
+            </div>
+
+            {/* New Template Form */}
+            {showNewTemplateForm && (
+              <form onSubmit={handleCreateTemplate} className="bg-white dark:bg-navy border border-copper/25 shadow-card rounded-2xl p-5 space-y-3 text-xs">
+                <h4 className="font-bold text-slate-900 dark:text-white">Create New Template</h4>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 block mb-1">Template Name *</label>
+                  <input
+                    required
+                    value={newTemplate.name}
+                    onChange={e => setNewTemplate(p => ({ ...p, name: e.target.value }))}
+                    placeholder="e.g. Standard Panel Upgrade"
+                    className="w-full bg-slate-50 dark:bg-navy-950 border border-slate-200 dark:border-navy-850 rounded-xl px-3 py-2 text-slate-900 dark:text-white focus:outline-none focus:border-copper"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 block mb-1">Trade</label>
+                  <select
+                    value={newTemplate.trade}
+                    onChange={e => setNewTemplate(p => ({ ...p, trade: e.target.value }))}
+                    className="w-full bg-slate-50 dark:bg-navy-950 border border-slate-200 dark:border-navy-850 rounded-xl px-3 py-2 text-slate-900 dark:text-white focus:outline-none focus:border-copper"
+                  >
+                    {['electrical','roofing','hvac','painting','plumbing','drain','general','other'].map(t => (
+                      <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 block mb-1">Description</label>
+                  <textarea
+                    rows={2}
+                    value={newTemplate.description}
+                    onChange={e => setNewTemplate(p => ({ ...p, description: e.target.value }))}
+                    placeholder="Brief description of scope..."
+                    className="w-full bg-slate-50 dark:bg-navy-950 border border-slate-200 dark:border-navy-850 rounded-xl px-3 py-2 text-slate-900 dark:text-white focus:outline-none focus:border-copper resize-none"
+                  />
+                </div>
+                <button type="submit" className="w-full py-2.5 bg-copper hover:bg-copper-hover text-white rounded-xl font-bold transition-all">
+                  Create Template
+                </button>
+              </form>
+            )}
+
+            {/* Template List */}
+            {templatesLoading ? (
+              <div className="h-32 flex items-center justify-center"><div className="w-6 h-6 border-4 border-copper border-t-transparent rounded-full animate-spin" /></div>
+            ) : (
+              <div className="bg-white dark:bg-navy border border-app-border dark:border-navy-800 shadow-card rounded-2xl overflow-hidden">
+                {templates.length === 0 ? (
+                  <div className="py-12 text-center text-xs text-slate-400">
+                    <Package className="w-7 h-7 mx-auto mb-2 text-slate-300 dark:text-slate-700" />
+                    No templates found.
+                  </div>
+                ) : (
+                  <div className="divide-y divide-slate-100 dark:divide-navy-900">
+                    {templates.map(tmpl => (
+                      <div
+                        key={tmpl.id}
+                        onClick={() => { setSelectedTemplate(tmpl); fetchTemplateItems(tmpl.id); setShowNewTemplateForm(false); }}
+                        className={`p-4 cursor-pointer transition-colors ${
+                          selectedTemplate?.id === tmpl.id
+                            ? 'bg-copper/5 border-l-2 border-copper'
+                            : 'hover:bg-slate-50/50 dark:hover:bg-navy-950/30'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-bold text-xs text-slate-900 dark:text-white truncate">{tmpl.name}</span>
+                          {tmpl.is_global && (
+                            <span className="flex-shrink-0 flex items-center gap-1 text-[9px] font-bold text-copper bg-copper/10 border border-copper/20 px-1.5 py-0.5 rounded">
+                              <Globe className="w-2.5 h-2.5" /> Global
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className="text-[9px] font-bold uppercase text-slate-400 bg-slate-100 dark:bg-navy-950 border border-slate-200 dark:border-navy-850 px-1.5 py-0.5 rounded">{tmpl.trade}</span>
+                          {tmpl.description && <p className="text-[9px] text-slate-400 truncate">{tmpl.description}</p>}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Right: Template Items Detail */}
+          <div className="lg:col-span-8">
+            {selectedTemplate ? (
+              <div className="bg-white dark:bg-navy border border-app-border dark:border-navy-800 shadow-card rounded-2xl overflow-hidden">
+                <div className="px-6 py-4 border-b border-slate-100 dark:border-navy-850 bg-slate-50 dark:bg-navy-950/25 flex items-center justify-between">
+                  <div>
+                    <h3 className="font-sora font-extrabold text-sm text-slate-900 dark:text-white">{selectedTemplate.name}</h3>
+                    <p className="text-[10px] text-slate-400 mt-0.5 capitalize">{selectedTemplate.trade} • {selectedTemplate.is_global ? 'Global Template' : 'Organization Template'}</p>
+                  </div>
+                  {!selectedTemplate.is_global && (
+                    <button
+                      onClick={() => handleDeleteTemplate(selectedTemplate.id)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-50 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-900/30 text-rose-500 hover:bg-rose-500 hover:text-white rounded-xl text-xs font-bold transition-all"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" /> Delete
+                    </button>
+                  )}
+                </div>
+
+                <div className="overflow-x-auto scrollbar-thin">
+                  <table className="w-full text-left text-xs min-w-[650px]">
+                    <thead>
+                      <tr className="border-b border-slate-100 dark:border-navy-850 text-[9px] font-bold uppercase tracking-wider text-slate-400">
+                        <th className="py-3 px-5">Description</th>
+                        <th className="py-3 px-5">Qty</th>
+                        <th className="py-3 px-5">Unit</th>
+                        <th className="py-3 px-5">Unit Price</th>
+                        <th className="py-3 px-5">Category</th>
+                        <th className="py-3 px-5">Markup</th>
+                        <th className="py-3 px-5">Ext. Total</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-navy-900">
+                      {templateItems.length === 0 ? (
+                        <tr><td colSpan={7} className="py-10 text-center text-slate-400">No items in this template.</td></tr>
+                      ) : (
+                        templateItems.map(item => {
+                          const ext = item.quantity * item.unit_price * (1 + item.markup / 100);
+                          return (
+                            <tr key={item.id} className="hover:bg-slate-50/50 dark:hover:bg-navy-950/30">
+                              <td className="py-3 px-5 font-semibold text-slate-900 dark:text-white">{item.description}</td>
+                              <td className="py-3 px-5 text-slate-500 dark:text-slate-400">{item.quantity}</td>
+                              <td className="py-3 px-5 text-slate-500 dark:text-slate-400">{item.unit}</td>
+                              <td className="py-3 px-5 font-bold text-slate-900 dark:text-white">${Number(item.unit_price).toFixed(2)}</td>
+                              <td className="py-3 px-5">
+                                <span className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded border ${
+                                  item.category === 'labor' ? 'bg-blue-50 text-blue-600 border-blue-200 dark:bg-blue-950/20 dark:text-blue-400 dark:border-blue-900/30'
+                                  : item.category === 'material' ? 'bg-amber-50 text-amber-600 border-amber-200 dark:bg-amber-950/20 dark:text-amber-400 dark:border-amber-900/30'
+                                  : 'bg-slate-100 text-slate-500 border-slate-200 dark:bg-navy-950 dark:border-navy-850'
+                                }`}>{item.category}</span>
+                              </td>
+                              <td className="py-3 px-5 text-slate-500 dark:text-slate-400">{item.markup}%</td>
+                              <td className="py-3 px-5 font-bold text-copper">${ext.toFixed(2)}</td>
+                            </tr>
+                          );
+                        })
+                      )}
+                    </tbody>
+                    {templateItems.length > 0 && (
+                      <tfoot>
+                        <tr className="border-t-2 border-copper/20 bg-slate-50 dark:bg-navy-950/50">
+                          <td colSpan={6} className="py-3 px-5 text-[10px] font-extrabold uppercase tracking-wider text-slate-500 dark:text-slate-400 text-right">Template Estimated Total</td>
+                          <td className="py-3 px-5 font-sora font-extrabold text-copper text-sm">
+                            ${templateItems.reduce((sum, item) => sum + item.quantity * item.unit_price * (1 + item.markup / 100), 0).toFixed(2)}
+                          </td>
+                        </tr>
+                      </tfoot>
+                    )}
+                  </table>
+                </div>
+              </div>
+            ) : (
+              <div className="bg-white dark:bg-navy border border-app-border dark:border-navy-800 shadow-card p-12 rounded-2xl text-center">
+                <LayoutTemplate className="w-8 h-8 text-slate-300 dark:text-slate-700 mx-auto mb-3" />
+                <h3 className="font-sora font-extrabold text-sm text-slate-800 dark:text-white">Template Inspector</h3>
+                <p className="text-xs text-slate-400 mt-1 max-w-xs mx-auto leading-relaxed">Select a template from the left to inspect its line items, material costs, and estimated totals.</p>
+              </div>
+            )}
+          </div>
+        </div>
+
+      ) : activeTab === 'audit_logs' ? (
+        /* ═══════════════════════════════════════════════════
+           TAB 11: IMMUTABLE AUDIT LOG VIEWER
+        ═══════════════════════════════════════════════════ */
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="font-sora font-extrabold text-slate-900 dark:text-white text-sm flex items-center gap-2">
+                <ScrollText className="w-4 h-4 text-copper" /> Security Audit Log
+              </h2>
+              <p className="text-[11px] text-slate-400 mt-0.5">Immutable, append-only record of all security-sensitive operations. Paginated {AUDIT_PAGE_SIZE} per page.</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => { setAuditPage(p => Math.max(1, p - 1)); fetchAuditLogs(Math.max(1, auditPage - 1)); }}
+                disabled={auditPage === 1}
+                className="px-3 py-1.5 text-[10px] font-bold border border-slate-200 dark:border-navy-800 rounded-xl hover:border-copper hover:text-copper disabled:opacity-40 transition-all text-slate-400"
+              >
+                ← Prev
+              </button>
+              <span className="text-[10px] font-bold text-slate-400 px-2">Page {auditPage}</span>
+              <button
+                onClick={() => { setAuditPage(p => p + 1); fetchAuditLogs(auditPage + 1); }}
+                disabled={auditLogs.length < AUDIT_PAGE_SIZE}
+                className="px-3 py-1.5 text-[10px] font-bold border border-slate-200 dark:border-navy-800 rounded-xl hover:border-copper hover:text-copper disabled:opacity-40 transition-all text-slate-400"
+              >
+                Next →
+              </button>
+              <button onClick={() => fetchAuditLogs(auditPage)} className="p-2 hover:bg-slate-100 dark:hover:bg-navy-950 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-white transition-all">
+                <RefreshCw className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+
+          {auditLogsLoading ? (
+            <div className="h-40 flex items-center justify-center"><div className="w-7 h-7 border-4 border-copper border-t-transparent rounded-full animate-spin" /></div>
+          ) : (
+            <div className="bg-white dark:bg-navy border border-app-border dark:border-navy-800 shadow-card rounded-2xl overflow-hidden">
+              <div className="overflow-x-auto scrollbar-thin">
+                <table className="w-full text-left min-w-[900px] text-xs">
+                  <thead>
+                    <tr className="bg-slate-50 dark:bg-navy-950 border-b border-slate-200 dark:border-navy-800 text-[9px] font-bold uppercase tracking-wider text-slate-400">
+                      <th className="py-3.5 px-5">Timestamp</th>
+                      <th className="py-3.5 px-5">Actor</th>
+                      <th className="py-3.5 px-5">Action Type</th>
+                      <th className="py-3.5 px-5">Entity</th>
+                      <th className="py-3.5 px-5">Entity ID</th>
+                      <th className="py-3.5 px-5">IP Address</th>
+                      <th className="py-3.5 px-5">Changes</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-navy-900">
+                    {auditLogs.length === 0 ? (
+                      <tr><td colSpan={7} className="py-16 text-center text-slate-400">
+                        <Shield className="w-8 h-8 mx-auto mb-2 text-slate-300 dark:text-slate-700" />
+                        No audit events recorded yet.
+                      </td></tr>
+                    ) : (
+                      auditLogs.map(log => (
+                        <tr key={log.id} className="hover:bg-slate-50/40 dark:hover:bg-navy-950/30 align-top">
+                          <td className="py-3.5 px-5 text-slate-500 dark:text-slate-400 font-semibold whitespace-nowrap">
+                            {new Date(log.created_at).toLocaleDateString()} {new Date(log.created_at).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
+                          </td>
+                          <td className="py-3.5 px-5">
+                            <span className="font-mono text-[9px] text-slate-500 dark:text-slate-400">{log.actor_id ? log.actor_id.slice(0, 12) + '…' : 'System'}</span>
+                          </td>
+                          <td className="py-3.5 px-5">
+                            <span className={`text-[9px] font-extrabold px-2 py-0.5 rounded border uppercase tracking-wider ${
+                              log.action_type.includes('delete') || log.action_type.includes('revoke')
+                                ? 'bg-rose-50 text-rose-600 border-rose-200 dark:bg-rose-950/20 dark:border-rose-900/30'
+                                : log.action_type.includes('create') || log.action_type.includes('insert')
+                                ? 'bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-950/20 dark:border-emerald-900/30'
+                                : 'bg-copper/10 text-copper border-copper/20'
+                            }`}>
+                              {log.action_type}
+                            </span>
+                          </td>
+                          <td className="py-3.5 px-5 font-semibold text-slate-900 dark:text-white capitalize">{log.entity_type}</td>
+                          <td className="py-3.5 px-5">
+                            {log.entity_id ? <span className="font-mono text-[9px] text-slate-400">{log.entity_id.slice(0, 10)}…</span> : '—'}
+                          </td>
+                          <td className="py-3.5 px-5">
+                            {log.ip_address ? <span className="font-mono text-[9px] text-slate-500">{log.ip_address}</span> : '—'}
+                          </td>
+                          <td className="py-3.5 px-5 max-w-[200px]">
+                            {Object.keys(log.new_value || {}).length > 0 ? (
+                              <details className="text-[9px]">
+                                <summary className="cursor-pointer text-copper font-bold hover:underline">View diff</summary>
+                                <pre className="mt-1.5 p-2 bg-slate-50 dark:bg-navy-950 border border-slate-100 dark:border-navy-900 rounded-lg text-slate-500 dark:text-slate-400 whitespace-pre-wrap break-all leading-relaxed max-h-24 overflow-y-auto">{JSON.stringify(log.new_value, null, 2)}</pre>
+                              </details>
+                            ) : <span className="text-slate-300 dark:text-slate-700">—</span>}
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </div>
+
+      ) : activeTab === 'system_logs' ? (
+        /* ═══════════════════════════════════════════════════
+           TAB 12: SYSTEM & SUBSCRIPTION TRACKER
+        ═══════════════════════════════════════════════════ */
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="font-sora font-extrabold text-slate-900 dark:text-white text-sm flex items-center gap-2">
+                <CreditCard className="w-4 h-4 text-copper" /> System & Subscription Status
+              </h2>
+              <p className="text-[11px] text-slate-400 mt-0.5">Monitor Stripe billing lifecycle, active usage metrics, and storage consumption.</p>
+            </div>
+            <button onClick={fetchSystemLogs} className="p-2 hover:bg-slate-100 dark:hover:bg-navy-950 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-white transition-all">
+              <RefreshCw className="w-4 h-4" />
+            </button>
+          </div>
+
+          {sysLoading ? (
+            <div className="h-40 flex items-center justify-center"><div className="w-7 h-7 border-4 border-copper border-t-transparent rounded-full animate-spin" /></div>
+          ) : (
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Subscription Card */}
+              <div className="lg:col-span-1 bg-white dark:bg-navy border border-app-border dark:border-navy-800 shadow-card rounded-2xl p-6">
+                <h3 className="font-sora font-extrabold text-xs text-slate-900 dark:text-white mb-5 flex items-center gap-2">
+                  <CreditCard className="w-3.5 h-3.5 text-copper" /> Stripe Subscription
+                </h3>
+                {subscription ? (
+                  <div className="space-y-3 text-xs">
+                    <div className="flex justify-between items-center py-2 border-b border-slate-100 dark:border-navy-900">
+                      <span className="font-semibold text-slate-500 dark:text-slate-400">Status</span>
+                      <span className={`font-extrabold px-2.5 py-1 rounded-xl border text-[10px] uppercase tracking-wider ${
+                        subscription.status === 'active'
+                          ? 'bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-950/20 dark:border-emerald-900/30'
+                          : subscription.status === 'past_due'
+                          ? 'bg-amber-50 text-amber-600 border-amber-200'
+                          : 'bg-rose-50 text-rose-600 border-rose-200'
+                      }`}>
+                        {subscription.status}
+                      </span>
+                    </div>
+                    {subscription.price_id && (
+                      <div className="flex justify-between py-2 border-b border-slate-100 dark:border-navy-900">
+                        <span className="font-semibold text-slate-500 dark:text-slate-400">Price ID</span>
+                        <span className="font-mono text-[9px] text-slate-400 truncate max-w-[140px]">{subscription.price_id}</span>
+                      </div>
+                    )}
+                    {subscription.stripe_subscription_id && (
+                      <div className="flex justify-between py-2 border-b border-slate-100 dark:border-navy-900">
+                        <span className="font-semibold text-slate-500 dark:text-slate-400">Stripe ID</span>
+                        <span className="font-mono text-[9px] text-slate-400 truncate max-w-[140px]">{subscription.stripe_subscription_id}</span>
+                      </div>
+                    )}
+                    {subscription.current_period_end && (
+                      <div className="flex justify-between py-2 border-b border-slate-100 dark:border-navy-900">
+                        <span className="font-semibold text-slate-500 dark:text-slate-400">Period End</span>
+                        <span className="font-bold text-slate-900 dark:text-white">{new Date(subscription.current_period_end).toLocaleDateString()}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between py-2">
+                      <span className="font-semibold text-slate-500 dark:text-slate-400">Subscribed</span>
+                      <span className="font-bold text-slate-900 dark:text-white">{new Date(subscription.created_at).toLocaleDateString()}</span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="py-8 text-center">
+                    <CreditCard className="w-7 h-7 text-slate-300 dark:text-slate-700 mx-auto mb-2" />
+                    <p className="text-xs text-slate-400">No subscription record found.</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Usage Metrics Cards */}
+              <div className="lg:col-span-2 space-y-4">
+                <h3 className="font-sora font-extrabold text-xs text-slate-900 dark:text-white flex items-center gap-2">
+                  <TrendingUp className="w-3.5 h-3.5 text-copper" /> Billing Period Usage Metrics
+                </h3>
+
+                {usageStats.length === 0 ? (
+                  <div className="bg-white dark:bg-navy border border-app-border dark:border-navy-800 shadow-card rounded-2xl p-10 text-center">
+                    <Activity className="w-7 h-7 text-slate-300 dark:text-slate-700 mx-auto mb-2" />
+                    <p className="text-xs text-slate-400">No usage data recorded yet.</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    {['proposals_sent', 'ai_prompts', 'storage_bytes'].map(metric => {
+                      const record = usageStats.find(u => u.metric_name === metric);
+                      const icons: Record<string, any> = { proposals_sent: FileText, ai_prompts: Bot, storage_bytes: Database };
+                      const MetricIcon = icons[metric] || Activity;
+                      const labels: Record<string, string> = { proposals_sent: 'Proposals Sent', ai_prompts: 'AI Prompts Used', storage_bytes: 'Storage Used' };
+                      const formatValue = (m: string, v: number) => {
+                        if (m === 'storage_bytes') return v > 1048576 ? `${(v / 1048576).toFixed(1)} MB` : `${(v / 1024).toFixed(1)} KB`;
+                        return v.toLocaleString();
+                      };
+                      return (
+                        <div key={metric} className="bg-white dark:bg-navy border border-app-border dark:border-navy-800 shadow-card rounded-2xl p-5">
+                          <div className="flex items-center gap-2 mb-3">
+                            <div className="w-8 h-8 rounded-xl bg-copper/10 border border-copper/20 flex items-center justify-center">
+                              <MetricIcon className="w-4 h-4 text-copper" />
+                            </div>
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{labels[metric]}</span>
+                          </div>
+                          <span className="font-sora font-extrabold text-xl text-slate-900 dark:text-white">
+                            {record ? formatValue(metric, record.count) : '0'}
+                          </span>
+                          {record?.billing_period_start && (
+                            <p className="text-[9px] text-slate-400 mt-1">
+                              Since {new Date(record.billing_period_start).toLocaleDateString()}
+                            </p>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* Raw usage table */}
+                {usageStats.length > 0 && (
+                  <div className="bg-white dark:bg-navy border border-app-border dark:border-navy-800 shadow-card rounded-2xl overflow-hidden">
+                    <div className="px-5 py-3.5 border-b border-slate-100 dark:border-navy-850 bg-slate-50 dark:bg-navy-950/25">
+                      <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400">All Usage Periods</span>
+                    </div>
+                    <div className="overflow-x-auto scrollbar-thin">
+                      <table className="w-full text-xs text-left">
+                        <thead>
+                          <tr className="border-b border-slate-100 dark:border-navy-850 text-[9px] font-bold uppercase tracking-wider text-slate-400">
+                            <th className="py-3 px-5">Metric</th>
+                            <th className="py-3 px-5">Count</th>
+                            <th className="py-3 px-5">Period Start</th>
+                            <th className="py-3 px-5">Period End</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 dark:divide-navy-900">
+                          {usageStats.map(u => (
+                            <tr key={u.id} className="hover:bg-slate-50/50 dark:hover:bg-navy-950/30">
+                              <td className="py-3 px-5 font-bold capitalize text-slate-900 dark:text-white">{u.metric_name.replace('_', ' ')}</td>
+                              <td className="py-3 px-5 text-copper font-extrabold">{u.count.toLocaleString()}</td>
+                              <td className="py-3 px-5 text-slate-400">{new Date(u.billing_period_start).toLocaleDateString()}</td>
+                              <td className="py-3 px-5 text-slate-400">{u.billing_period_end ? new Date(u.billing_period_end).toLocaleDateString() : 'Ongoing'}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
+      ) : null}
 
       {/* Invite Modal */}
       {showInviteModal && (

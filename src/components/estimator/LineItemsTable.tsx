@@ -28,12 +28,13 @@ interface Props {
   onDelete: (id: string) => void;
   onReorder: (items: ProjectItem[]) => void;
   onOpenPriceBook: () => void;
+  onOpenTemplates: () => void;
 }
 
 const CATEGORIES: CategoryType[] = ['material', 'labor', 'equipment', 'other'];
 const UNITS = ['ea', 'hr', 'ft', 'lf', 'sq', 'sqft', 'gal', 'lb', 'cy', 'day', 'visit', 'job'];
 
-export default function LineItemsTable({ items, onAdd, onUpdate, onDelete, onReorder, onOpenPriceBook }: Props) {
+export default function LineItemsTable({ items, onAdd, onUpdate, onDelete, onReorder, onOpenPriceBook, onOpenTemplates }: Props) {
   const sensors = useSensors(
     useSensor(PointerSensor),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
@@ -55,16 +56,23 @@ export default function LineItemsTable({ items, onAdd, onUpdate, onDelete, onReo
         <h2 className="text-sm font-bold text-slate-700 dark:text-slate-200 font-sora">Line Items</h2>
         <div className="flex items-center gap-2">
           <button
+            id="open-templates"
+            onClick={onOpenTemplates}
+            className="px-3 py-1.5 bg-copper/10 dark:bg-copper/20 hover:bg-copper/25 text-copper dark:text-copper border border-copper/35 rounded-lg text-xs font-bold transition-all shadow-sm font-inter"
+          >
+            ⚡ Assemblies
+          </button>
+          <button
             id="open-price-book"
             onClick={onOpenPriceBook}
-            className="px-3.5 py-1.5 bg-white dark:bg-navy-800 border border-slate-200 dark:border-navy-700 text-slate-600 dark:text-slate-300 rounded-lg text-xs font-bold hover:bg-slate-50 dark:hover:bg-navy-700 transition-all shadow-sm font-inter"
+            className="px-3 py-1.5 bg-white dark:bg-navy-800 border border-slate-200 dark:border-navy-700 text-slate-600 dark:text-slate-300 rounded-lg text-xs font-bold hover:bg-slate-50 dark:hover:bg-navy-750 transition-all shadow-sm font-inter"
           >
             📚 Price Book
           </button>
           <button
             id="add-line-item"
             onClick={onAdd}
-            className="flex items-center gap-1.5 px-3.5 py-1.5 bg-copper hover:bg-copper-hover text-white rounded-lg text-xs font-bold transition-all shadow-sm shadow-copper/10 font-inter"
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-copper hover:bg-copper-hover text-white rounded-lg text-xs font-bold transition-all shadow-sm shadow-copper/10 font-inter"
           >
             <Plus className="w-3.5 h-3.5" />
             Add Item

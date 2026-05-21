@@ -1,10 +1,12 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { supabase } from '../api/supabase';
-import { calcTotals, formatCurrency } from '../lib/calculations';
+import { calcTotals, formatCurrency, calcFinancing, formatMonthly } from '../lib/pricingEngine';
+import MultiOptionTiers from '../components/estimator/MultiOptionTiers';
 import type { Project, ProjectItem } from '../types';
 import { TRADE_EMOJIS } from '../types';
 import { toast } from 'sonner';
+import { eventBus } from '../lib/eventBus';
 
 // ── Canvas Signature Pad ─────────────────────────────────────────────────────
 function SignaturePad({
@@ -150,6 +152,11 @@ export default function ClientPortal() {
   const [signatureDataUrl, setSignatureDataUrl] = useState<string | null>(null);
   const [signatureError, setSignatureError] = useState(false);
 
+  const [financingRate, setFinancingRate] = useState(9.99);
+  const [financingMonths, setFinancingMonths] = useState(60);
+  const [financingMinAmount, setFinancingMinAmount] = useState(1000);
+  const [financingTerm, setFinancingTerm] = useState(60);
+
   useEffect(() => {
     const fetchData = async () => {
       const { data: proj, error } = await supabase
@@ -174,6 +181,29 @@ export default function ClientPortal() {
 
       setItems((projectItems as ProjectItem[]) || []);
       setLoading(false);
+      
+      // Fetch system settings for financing defaults
+      try {
+        const { data: sysSettings } = await supabase
+          .from('system_settings')
+          .select('*')
+          .single();
+        if (sysSettings) {
+          setFinancingRate(sysSettings.financing_interest_rate ?? 9.99);
+          const maxTerm = sysSettings.financing_max_term_months ?? 60;
+          setFinancingMonths(maxTerm);
+          setFinancingTerm(maxTerm); // Default to max term
+          setFinancingMinAmount(sysSettings.financing_min_amount ?? 1000);
+        }
+      } catch (err) {
+        console.error('Failed to load system settings financing defaults', err);
+      }
+
+      // Trigger proposal viewed event
+      eventBus.emit('proposal.viewed', { 
+        projectId: proj.id, 
+        viewedAt: new Date().toISOString() 
+      }).catch(err => console.warn('[ClientPortal] Failed to emit viewed event:', err));
     };
 
     fetchData();
@@ -235,6 +265,14 @@ export default function ClientPortal() {
       setSubmitted(true);
       setAction(null);
       toast.success('Bid approved! The contractor has been notified.');
+      
+      // Trigger proposal approved event to halt automated follow-up campaigns
+      eventBus.emit('proposal.approved', {
+        projectId: project.id,
+        approvedAt: new Date().toISOString(),
+        signatureData: signatureDataUrl,
+        selectedTier: project.selected_option_tier || 'base'
+      }).catch(err => console.warn('[ClientPortal] Failed to emit approved event:', err));
     }
     setSubmitting(false);
   };
@@ -288,8 +326,35 @@ export default function ClientPortal() {
     );
   }
 
-  const totals = calcTotals(items, project.labor_markup, project.material_markup, project.equipment_markup, project.tax_rate);
+  const activeTier = project?.selected_option_tier || 'better';
+
+  const visibleItems = project?.is_multi_option
+    ? items.filter(item => !item.option_tier || item.option_tier === 'base' || item.option_tier === activeTier)
+    : items;
+
+  const totals = calcTotals(visibleItems, project.labor_markup, project.material_markup, project.equipment_markup, project.tax_rate);
   const isApproved = !!project.client_approved_at;
+
+  const handleSelectTier = async (tier: 'good' | 'better' | 'best') => {
+    if (!project || isApproved) return;
+    
+    setProject(prev => prev ? { ...prev, selected_option_tier: tier } : null);
+
+    const { error } = await supabase
+      .from('projects')
+      .update({
+        selected_option_tier: tier,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('share_token', shareToken);
+
+    if (error) {
+      console.error('Error selecting tier:', error);
+      toast.error('Failed to save your package selection.');
+    } else {
+      toast.success(`Package updated to ${tier.toUpperCase()}!`);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-slate-100 dark:bg-navy-950 font-inter text-slate-800 dark:text-slate-100 transition-colors duration-200">
@@ -379,6 +444,23 @@ export default function ClientPortal() {
           </div>
         )}
 
+        {project.is_multi_option && (
+          <div className="bg-white dark:bg-navy-900 rounded-2xl border border-slate-200 dark:border-navy-800 p-6 transition-colors">
+            <MultiOptionTiers
+              items={items}
+              laborMarkup={project.labor_markup}
+              materialMarkup={project.material_markup}
+              equipmentMarkup={project.equipment_markup}
+              taxRate={project.tax_rate}
+              financingRate={financingRate}
+              financingMonths={financingMonths}
+              financingMinAmount={financingMinAmount}
+              selectedTier={project.selected_option_tier as 'good' | 'better' | 'best'}
+              onSelectTier={handleSelectTier}
+            />
+          </div>
+        )}
+
         {/* ── Line Items ── */}
         <div className="overflow-x-auto rounded-2xl border border-slate-200 dark:border-navy-800 shadow-soft bg-white dark:bg-navy-900 transition-colors scrollbar-thin">
           <div className="min-w-[850px] divide-y divide-slate-100 dark:divide-navy-800/50">
@@ -391,11 +473,11 @@ export default function ClientPortal() {
               <div className="col-span-2 text-xs font-bold text-slate-300 dark:text-slate-400 uppercase tracking-wider text-right">Total</div>
             </div>
 
-            {items.length === 0 ? (
+            {visibleItems.length === 0 ? (
               <div className="py-12 text-center text-slate-400 dark:text-slate-500 text-sm">No line items in this proposal</div>
             ) : (
               <div className="divide-y divide-slate-50 dark:divide-navy-800/30">
-                {items.map((item, i) => (
+                {visibleItems.map((item, i) => (
                   <div
                     key={item.id}
                     className={`grid grid-cols-12 gap-2 px-5 py-3.5 items-center ${i % 2 === 0 ? 'bg-white dark:bg-navy-900' : 'bg-slate-50/20 dark:bg-navy-950/10'}`}
@@ -442,6 +524,44 @@ export default function ClientPortal() {
               <span className="text-sm font-bold text-white uppercase tracking-wider">TOTAL VALUE</span>
               <span className="text-lg font-bold text-copper">{formatCurrency(totals.total)}</span>
             </div>
+            {totals.total >= financingMinAmount && (
+              <div className="p-4 bg-gradient-to-br from-amber-500/5 to-copper/5 dark:from-navy-950 dark:to-navy-900/60 rounded-xl border border-copper/15 dark:border-navy-800 flex flex-col gap-2.5 animate-fade-in mt-2 transition-all">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold font-sora text-copper uppercase tracking-wider">
+                    💳 Low-Rate Financing Option
+                  </span>
+                  <span className="text-[9px] font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 px-2 py-0.5 rounded-full">
+                    {financingRate}% APR
+                  </span>
+                </div>
+                <div className="flex items-baseline justify-between">
+                  <span className="text-sm font-inter text-slate-500 dark:text-slate-400">Estimated payment:</span>
+                  <span className="text-lg font-bold text-slate-900 dark:text-white font-sora">
+                    {formatMonthly(calcFinancing({ principal: totals.total, annualInterestRate: financingRate, termMonths: financingTerm }).monthlyPayment)}
+                  </span>
+                </div>
+
+                {/* Term Selection Toggle */}
+                <div className="flex items-center justify-between border-t border-slate-100 dark:border-navy-850 pt-2.5 mt-1">
+                  <span className="text-[10px] text-slate-400 font-inter font-medium">Choose duration term:</span>
+                  <div className="flex gap-1 bg-slate-100 dark:bg-navy-950 p-0.5 rounded-lg border border-slate-200/50 dark:border-navy-800">
+                    {[36, 60, 120, 180, 240].filter(t => t <= financingMonths).map((t) => (
+                      <button
+                        key={t}
+                        onClick={() => setFinancingTerm(t)}
+                        className={`px-2 py-1 rounded-md text-[9px] font-bold transition-all ${
+                          financingTerm === t
+                            ? 'bg-white dark:bg-navy-800 text-slate-800 dark:text-white shadow-xs'
+                            : 'text-slate-400 hover:text-slate-650'
+                        }`}
+                      >
+                        {t} mo
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 

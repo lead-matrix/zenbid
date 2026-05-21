@@ -1,4 +1,6 @@
+import { useState } from 'react';
 import { formatCurrency } from '../../lib/calculations';
+import { calcFinancing, formatMonthly } from '../../lib/pricingEngine';
 import type { TotalsResult } from '../../types';
 
 interface Props {
@@ -8,6 +10,9 @@ interface Props {
   onExportPDF: () => void;
   onCopyLink: () => void;
   exportingPDF: boolean;
+  financingRate?: number;
+  financingMonths?: number;
+  financingMinAmount?: number;
 }
 
 export default function TotalsSidebar({
@@ -17,14 +22,25 @@ export default function TotalsSidebar({
   onExportPDF,
   onCopyLink,
   exportingPDF,
+  financingRate = 9.99,
+  financingMonths = 60,
+  financingMinAmount = 1000,
 }: Props) {
   const { subtotal, laborSub, matSub, eqSub, otherSub, marginAmount, taxAmount, total } = totals;
+  const [financingTerm, setFinancingTerm] = useState<number>(financingMonths);
+
+  // Compute monthly payment options
+  const financing = calcFinancing({
+    principal: total,
+    annualInterestRate: financingRate,
+    termMonths: financingTerm,
+  });
 
   return (
     <div className="space-y-6 transition-all duration-200">
       {/* Totals Card */}
       <div className="bg-white dark:bg-navy-900 rounded-2xl border border-slate-100 dark:border-navy-800/80 shadow-card overflow-hidden">
-        <div className="px-5 py-4 border-b border-slate-100 dark:border-navy-800 bg-slate-50/50 dark:bg-navy-900/40">
+        <div className="px-5 py-4 border-b border-slate-100 dark:border-navy-800 bg-slate-50/50 dark:bg-navy-900/50">
           <h3 className="text-sm font-bold text-slate-700 dark:text-slate-200 font-sora">Estimate Summary</h3>
         </div>
 
@@ -100,6 +116,46 @@ export default function TotalsSidebar({
               <span className="text-xl font-bold text-white font-sora">{formatCurrency(total)}</span>
             </div>
           </div>
+
+          {/* Interactive Financing CTA Card (For Estimates > Min Amount) */}
+          {total >= financingMinAmount && (
+            <div className="mt-3 p-4 bg-gradient-to-br from-amber-500/5 to-copper/5 dark:from-navy-950 dark:to-navy-900/60 rounded-xl border border-copper/15 dark:border-navy-800 flex flex-col gap-2.5 animate-fade-in">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-bold font-sora text-copper uppercase tracking-wider">
+                  💳 Low-Rate Financing Option
+                </span>
+                <span className="text-[9px] font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 px-2 py-0.5 rounded-full">
+                  {financingRate}% APR
+                </span>
+              </div>
+              <div className="flex items-baseline justify-between">
+                <span className="text-sm font-inter text-slate-500 dark:text-slate-400">Estimated payment:</span>
+                <span className="text-lg font-bold text-slate-900 dark:text-white font-sora">
+                  {formatMonthly(financing.monthlyPayment)}
+                </span>
+              </div>
+
+              {/* Term Selection Toggle */}
+              <div className="flex items-center justify-between border-t border-slate-100 dark:border-navy-850 pt-2.5 mt-1">
+                <span className="text-[10px] text-slate-400 font-inter">Choose duration term:</span>
+                <div className="flex gap-1 bg-slate-100 dark:bg-navy-950 p-0.5 rounded-lg border border-slate-200/50 dark:border-navy-800">
+                  {[36, 60, 120, 180, 240].filter(t => t <= financingMonths).map((t) => (
+                    <button
+                      key={t}
+                      onClick={() => setFinancingTerm(t)}
+                      className={`px-2 py-1 rounded-md text-[9px] font-bold transition-all ${
+                        financingTerm === t
+                          ? 'bg-white dark:bg-navy-800 text-slate-800 dark:text-white shadow-xs'
+                          : 'text-slate-400 hover:text-slate-655'
+                      }`}
+                    >
+                      {t} mo
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

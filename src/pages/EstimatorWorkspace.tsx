@@ -10,6 +10,9 @@ import LineItemsTable from '../components/estimator/LineItemsTable';
 import TotalsSidebar from '../components/estimator/TotalsSidebar';
 import PriceBookDrawer from '../components/estimator/PriceBookDrawer';
 import MarkupSettings from '../components/estimator/MarkupSettings';
+import AIScopeAssistant from '../components/estimator/AIScopeAssistant';
+import MultiOptionTiers from '../components/estimator/MultiOptionTiers';
+import TemplateSelectModal from '../components/projects/TemplateSelectModal';
 import type { Project, StatusType, ProjectItem } from '../types';
 import { TRADE_EMOJIS } from '../types';
 
@@ -31,6 +34,7 @@ export default function EstimatorWorkspace() {
   const { items, loading: itemsLoading, addItem, updateItem, deleteItem, reorderItems } = useProjectItems(id);
 
   const [priceBookOpen, setPriceBookOpen] = useState(false);
+  const [templateModalOpen, setTemplateModalOpen] = useState(false);
   const [exportingPDF, setExportingPDF] = useState(false);
   const [notes, setNotes] = useState('');
   const notesTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -41,6 +45,30 @@ export default function EstimatorWorkspace() {
   useEffect(() => {
     if (project) setNotes(project.notes || '');
   }, [project?.id]);
+
+  const [financingDefaults, setFinancingDefaults] = useState({
+    apr: 9.99,
+    term: 60,
+    minAmount: 1000,
+  });
+
+  useEffect(() => {
+    if (project?.user_id) {
+      const stored = localStorage.getItem(`financing_defaults_${project.user_id}`);
+      if (stored) {
+        try {
+          const parsed = JSON.parse(stored);
+          setFinancingDefaults({
+            apr: parsed.apr ?? 9.99,
+            term: parsed.term ?? 60,
+            minAmount: parsed.minAmount ?? 1000,
+          });
+        } catch (e) {
+          console.error('Failed to load financing defaults from localStorage', e);
+        }
+      }
+    }
+  }, [project?.user_id]);
 
   // Calculate totals
   const totals = project ? calcTotals(
@@ -91,6 +119,35 @@ export default function EstimatorWorkspace() {
   const handleStatusChange = async (status: StatusType) => {
     await updateProject({ status });
     toast.success(`Status updated to ${status}`);
+  };
+
+  const handleAIItemsGenerated = async (generatedItems: any[], summary: string) => {
+    for (const item of generatedItems) {
+      await addItem({
+        description: item.description,
+        quantity: item.quantity,
+        unit: item.unit,
+        unit_price: item.unit_price,
+        category: item.category,
+        markup: item.markup,
+      });
+    }
+    if (summary) {
+      handleNotesChange(notes ? `${notes}\n\nAI Scope Summary:\n${summary}` : `AI Scope Summary:\n${summary}`);
+    }
+  };
+
+  const handleApplyTemplateItems = async (templateItems: any[]) => {
+    for (const item of templateItems) {
+      await addItem({
+        description: item.description,
+        quantity: item.quantity,
+        unit: item.unit,
+        unit_price: item.unit_price,
+        category: item.category,
+        markup: item.markup,
+      });
+    }
   };
 
   const handleCopyLink = () => {
@@ -181,6 +238,17 @@ export default function EstimatorWorkspace() {
             </div>
 
             <button
+              onClick={() => updateProject({ is_multi_option: !project.is_multi_option })}
+              className={`flex items-center gap-1.5 px-3.5 py-2 border rounded-xl text-xs font-bold transition-all shadow-sm ${
+                project.is_multi_option
+                  ? 'bg-copper text-white border-transparent'
+                  : 'bg-white dark:bg-navy-900 border-slate-200 dark:border-navy-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-navy-800'
+              }`}
+            >
+              👑 {project.is_multi_option ? 'Multi-Option: Active' : 'Enable Multi-Option'}
+            </button>
+
+            <button
               id="share-btn"
               onClick={handleCopyLink}
               className="flex items-center gap-1.5 px-3.5 py-2 bg-white dark:bg-navy-900 border border-slate-200 dark:border-navy-700 text-slate-600 dark:text-slate-300 rounded-xl text-xs font-bold hover:bg-slate-50 dark:hover:bg-navy-800 transition-all shadow-sm"
@@ -212,7 +280,31 @@ export default function EstimatorWorkspace() {
             onDelete={deleteItem}
             onReorder={reorderItems}
             onOpenPriceBook={() => setPriceBookOpen(true)}
+            onOpenTemplates={() => setTemplateModalOpen(true)}
           />
+
+          <AIScopeAssistant
+            projectId={project.id}
+            trade={project.trade}
+            onItemsGenerated={handleAIItemsGenerated}
+          />
+
+          {project.is_multi_option && (
+            <div className="bg-white dark:bg-navy-900 rounded-2xl border border-slate-100 dark:border-navy-800/80 shadow-card p-6">
+              <MultiOptionTiers
+                items={items}
+                laborMarkup={project.labor_markup}
+                materialMarkup={project.material_markup}
+                equipmentMarkup={project.equipment_markup}
+                taxRate={project.tax_rate}
+                financingRate={financingDefaults.apr}
+                financingMonths={financingDefaults.term}
+                financingMinAmount={financingDefaults.minAmount}
+                selectedTier={project.selected_option_tier as 'good' | 'better' | 'best'}
+                onSelectTier={(tier) => updateProject({ selected_option_tier: tier })}
+              />
+            </div>
+          )}
 
           <MarkupSettings
             project={project}
@@ -230,6 +322,9 @@ export default function EstimatorWorkspace() {
               onExportPDF={handleExportPDF}
               onCopyLink={handleCopyLink}
               exportingPDF={exportingPDF}
+              financingRate={financingDefaults.apr}
+              financingMonths={financingDefaults.term}
+              financingMinAmount={financingDefaults.minAmount}
             />
           </div>
         </div>
@@ -241,6 +336,14 @@ export default function EstimatorWorkspace() {
         onClose={() => setPriceBookOpen(false)}
         projectTrade={project.trade}
         onAddItem={handleAddFromPriceBook}
+      />
+
+      {/* Contracting Templates Selector Modal */}
+      <TemplateSelectModal
+        isOpen={templateModalOpen}
+        onClose={() => setTemplateModalOpen(false)}
+        onApplyItems={handleApplyTemplateItems}
+        projectTrade={project.trade}
       />
     </div>
   );

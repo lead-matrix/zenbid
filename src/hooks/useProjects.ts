@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../api/supabase';
 import type { Project, StatusType } from '../types';
 import { toast } from 'sonner';
+import { eventBus } from '../lib/eventBus';
 
 export function useProjects() {
   const [projects, setProjects] = useState<Project[]>([]);
@@ -62,9 +63,18 @@ export function useProjects() {
       return;
     }
 
+    const proj = projects.find(p => p.id === id);
+    const clientEmail = updates.client_email || proj?.client_email;
+
     setProjects(prev =>
       prev.map(p => (p.id === id ? { ...p, ...updates } : p))
     );
+
+    if (updates.status === 'sent') {
+      eventBus.emit('proposal.sent', { projectId: id, sentAt: new Date().toISOString(), clientEmail });
+    } else if (updates.status === 'lost') {
+      eventBus.emit('proposal.abandoned', { projectId: id, abandonedAt: new Date().toISOString() });
+    }
   };
 
   const deleteProject = async (id: string): Promise<void> => {
@@ -119,7 +129,15 @@ export function useProject(id: string | undefined) {
       .eq('id', id);
 
     if (!error) {
-      setProject(prev => prev ? { ...prev, ...updates } : null);
+      setProject(prev => {
+        const next = prev ? { ...prev, ...updates } : null;
+        if (updates.status === 'sent') {
+          eventBus.emit('proposal.sent', { projectId: id, sentAt: new Date().toISOString(), clientEmail: next?.client_email });
+        } else if (updates.status === 'lost') {
+          eventBus.emit('proposal.abandoned', { projectId: id, abandonedAt: new Date().toISOString() });
+        }
+        return next;
+      });
     }
   };
 
