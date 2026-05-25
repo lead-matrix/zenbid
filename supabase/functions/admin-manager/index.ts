@@ -51,7 +51,7 @@ serve(async (req) => {
           full_name: fullName || '',
           company_name: companyName || '',
         },
-        redirectTo: `${Deno.env.get("SITE_URL") || "https://lmtrx.us"}/dashboard`,
+        redirectTo: `${Deno.env.get("SITE_URL") || "https://peakeastimator.top"}/dashboard`,
       });
 
       if (inviteErr) {
