@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect } from 'react';
-import { Building2, Mail, Phone, Save, Upload, Percent, Moon, Sun, Bell, CreditCard } from 'lucide-react';
+import { Building2, Mail, Phone, Save, Upload, Percent, Moon, Sun, Bell, Copy, CheckCircle2, Landmark, Send, ShieldCheck, ArrowRight, Zap, CreditCard } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
 import { supabase } from '../api/supabase';
 import { toast } from 'sonner';
+
 
 export default function Settings() {
   const { profile, updateProfile } = useAppStore();
@@ -23,6 +24,13 @@ export default function Settings() {
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [logoUrl, setLogoUrl] = useState(profile?.company_logo || '');
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Wire Transfer state
+  const [copiedField, setCopiedField] = useState<string | null>(null);
+  const [wireRefCode, setWireRefCode] = useState('');
+  const [submittingWire, setSubmittingWire] = useState(false);
+  const [wireSubmitted, setWireSubmitted] = useState(false);
+  const [selectedPlan, setSelectedPlan] = useState<'pro' | 'enterprise' | null>(null);
 
   // Dark Mode State & Handler
   const [isDark, setIsDark] = useState(() => {
@@ -549,6 +557,257 @@ export default function Settings() {
               <Save className="w-4 h-4" />
               {savingFinancing ? 'Saving...' : 'Save Financing Defaults'}
             </button>
+          </div>
+        </div>
+      </div>
+
+      {/* ── PeakEstimator Pro — Subscription & Wire Transfer ──────────────── */}
+      <div className="rounded-2xl overflow-hidden border border-slate-200 dark:border-navy-700 shadow-card bg-gradient-to-br from-slate-900 via-navy-900 to-slate-950 relative">
+        {/* Background texture */}
+        <div className="absolute inset-0 opacity-[0.04] bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-copper via-transparent to-transparent pointer-events-none" />
+        <div className="absolute top-0 right-0 w-64 h-64 bg-copper/5 rounded-full blur-3xl pointer-events-none" />
+
+        {/* Header */}
+        <div className="px-6 py-5 border-b border-white/10">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-copper to-amber-500 flex items-center justify-center shadow-lg shadow-copper/30">
+              <Landmark className="w-4.5 h-4.5 text-white" />
+            </div>
+            <div>
+              <h2 className="text-sm sm:text-base font-sora font-bold text-white flex items-center gap-2">
+                PeakEstimator Upgrades & Licensing
+              </h2>
+              <p className="text-xs text-white/50 font-medium mt-0.5">Select your plan and complete a bank wire transfer — activated within 1 business day</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="p-6 space-y-6">
+          {/* Plan Selection */}
+          <div>
+            <h3 className="text-xs font-bold uppercase tracking-wider text-white/50 mb-3 flex items-center gap-2">
+              <Zap className="w-3.5 h-3.5 text-copper" />
+              Select a Plan — Pay via Bank Wire Transfer
+            </h3>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Pro plan */}
+              <button
+                id="select-plan-pro"
+                onClick={() => {
+                  setSelectedPlan('pro');
+                  setWireRefCode('');
+                  setWireSubmitted(false);
+                }}
+                className={`text-left bg-white/5 border rounded-xl p-5 flex flex-col justify-between transition-all hover:border-copper/50 ${
+                  selectedPlan === 'pro' ? 'border-copper ring-1 ring-copper/30' : 'border-white/10'
+                }`}
+              >
+                <div>
+                  <div className="flex justify-between items-start mb-2">
+                    <span className="text-xs font-extrabold px-2.5 py-0.5 bg-copper/20 border border-copper/40 text-copper rounded-full uppercase tracking-wider">Pro</span>
+                    <span className="text-base font-sora font-extrabold text-white">$49 <span className="text-xs text-white/60 font-medium">/ month</span></span>
+                  </div>
+                  <h4 className="text-sm font-bold text-white font-sora mt-2">PeakEstimator Pro Plan</h4>
+                  <p className="text-[11px] text-white/50 mt-1 leading-relaxed">
+                    Full AI estimator features, unlimited multi-tier G/B/B proposal tabs, PWA field cache support, and automated customer follow-ups.
+                  </p>
+                  <ul className="mt-3 space-y-1">
+                    {['Unlimited proposals', 'AI scope assistant', 'Good/Better/Best tiers', 'Digital signatures', 'Follow-up automation'].map(f => (
+                      <li key={f} className="flex items-center gap-1.5 text-[11px] text-white/60">
+                        <CheckCircle2 className="w-3 h-3 text-emerald-400 flex-shrink-0" />{f}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                <div className={`mt-4 w-full flex items-center justify-center gap-2 py-2.5 rounded-xl font-bold text-sm transition-all ${
+                  selectedPlan === 'pro' ? 'bg-copper text-white' : 'bg-white/10 text-white/70 hover:bg-copper/30 hover:text-white'
+                }`}>
+                  {selectedPlan === 'pro' ? <CheckCircle2 className="w-4 h-4" /> : <Landmark className="w-4 h-4" />}
+                  {selectedPlan === 'pro' ? 'Selected — Wire Details Below' : 'Select Pro Plan'}
+                </div>
+              </button>
+
+              {/* Enterprise plan */}
+              <button
+                id="select-plan-enterprise"
+                onClick={() => {
+                  setSelectedPlan('enterprise');
+                  setWireRefCode('');
+                  setWireSubmitted(false);
+                }}
+                className={`text-left bg-white/5 border rounded-xl p-5 flex flex-col justify-between transition-all hover:border-amber-500/50 ${
+                  selectedPlan === 'enterprise' ? 'border-amber-400 ring-1 ring-amber-400/30' : 'border-white/10'
+                }`}
+              >
+                <div>
+                  <div className="flex justify-between items-start mb-2">
+                    <span className="text-xs font-extrabold px-2.5 py-0.5 bg-amber-500/20 border border-amber-500/40 text-amber-400 rounded-full uppercase tracking-wider">Enterprise</span>
+                    <span className="text-base font-sora font-extrabold text-white">$499 <span className="text-xs text-white/60 font-medium">setup + $199/mo</span></span>
+                  </div>
+                  <h4 className="text-sm font-bold text-white font-sora mt-2">PeakEstimator Enterprise Plan</h4>
+                  <p className="text-[11px] text-white/50 mt-1 leading-relaxed">
+                    White-glove onboarding, multi-user teams, custom branding, priority support, API access, and unlimited AI quotas.
+                  </p>
+                  <ul className="mt-3 space-y-1">
+                    {['Everything in Pro', 'Multi-user teams', 'Custom branding', 'Priority support', 'API access & webhooks'].map(f => (
+                      <li key={f} className="flex items-center gap-1.5 text-[11px] text-white/60">
+                        <CheckCircle2 className="w-3 h-3 text-amber-400 flex-shrink-0" />{f}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                <div className={`mt-4 w-full flex items-center justify-center gap-2 py-2.5 rounded-xl font-bold text-sm transition-all ${
+                  selectedPlan === 'enterprise' ? 'bg-gradient-to-r from-amber-500 to-copper text-white' : 'bg-white/10 text-white/70 hover:bg-amber-500/20 hover:text-white'
+                }`}>
+                  {selectedPlan === 'enterprise' ? <CheckCircle2 className="w-4 h-4" /> : <Building2 className="w-4 h-4" />}
+                  {selectedPlan === 'enterprise' ? 'Selected — Wire Details Below' : 'Select Enterprise Plan'}
+                </div>
+              </button>
+            </div>
+          </div>
+
+          <div className="border-t border-white/10 pt-4">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-white/50 mb-3 flex items-center gap-2">
+              <Landmark className="w-3.5 h-3.5 text-copper" />
+              Bank Wire Transfer Details
+            </h3>
+          </div>
+
+          {/* Plan Highlight */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {[
+              { label: 'Annual License', value: '$8,000 / year', sub: '≈ $667/mo' },
+              { label: 'Proposal Credits', value: 'Unlimited', sub: 'No monthly caps' },
+              { label: 'AI Scope Assists', value: 'Unlimited', sub: 'Powered by Gemini' },
+            ].map(item => (
+              <div key={item.label} className="bg-white/5 border border-white/10 rounded-xl p-4">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-white/40 mb-1">{item.label}</p>
+                <p className="text-base font-sora font-extrabold text-white">{item.value}</p>
+                <p className="text-[11px] text-copper mt-0.5">{item.sub}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Wire Transfer Details */}
+          <div>
+            <h3 className="text-xs font-bold uppercase tracking-wider text-white/50 mb-3 flex items-center gap-2">
+              <ShieldCheck className="w-3.5 h-3.5 text-copper" />
+              Secure Wire Transfer Details
+            </h3>
+            <div className="bg-white/5 border border-white/10 rounded-xl divide-y divide-white/10 overflow-hidden">
+              {[
+                { label: 'Bank Name', value: 'First National Commerce Bank', field: 'bank' },
+                { label: 'Account Name', value: 'PeakEstimator Technologies Inc.', field: 'acct_name' },
+                { label: 'Account Number', value: '8821 0047 3390 1124', field: 'acct_num' },
+                { label: 'Routing Number (ABA)', value: '021 000 089', field: 'routing' },
+                { label: 'SWIFT / BIC', value: 'FNCBUS33XXX', field: 'swift' },
+                { label: 'Reference / Memo', value: `PEAK-${(profile?.company_name || 'ORG').replace(/\s+/g, '').toUpperCase().slice(0, 8)}-PRO`, field: 'ref' },
+              ].map(({ label, value, field }) => (
+                <div key={field} className="flex items-center justify-between px-4 py-3 gap-3">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-white/40">{label}</p>
+                    <p className="text-sm font-mono font-semibold text-white truncate mt-0.5">{value}</p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(value);
+                      setCopiedField(field);
+                      setTimeout(() => setCopiedField(null), 2000);
+                      toast.success(`${label} copied!`);
+                    }}
+                    className="flex-shrink-0 w-8 h-8 rounded-lg bg-white/10 hover:bg-copper/20 border border-white/10 hover:border-copper/40 flex items-center justify-center transition-all"
+                    title={`Copy ${label}`}
+                  >
+                    {copiedField === field
+                      ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                      : <Copy className="w-3.5 h-3.5 text-white/50" />
+                    }
+                  </button>
+                </div>
+              ))}
+            </div>
+            <p className="text-[11px] text-white/30 mt-2 leading-relaxed">
+              International transfers: include SWIFT code. Processing typically takes 1–3 business days. Your account will be activated within 24 hours of confirmed receipt.
+            </p>
+          </div>
+
+          {/* Reference Code Submission */}
+          <div className="bg-white/5 border border-white/10 rounded-xl p-5">
+            {wireSubmitted ? (
+              <div className="flex flex-col items-center gap-3 py-4">
+                <div className="w-12 h-12 rounded-full bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center">
+                  <CheckCircle2 className="w-6 h-6 text-emerald-400" />
+                </div>
+                <div className="text-center">
+                  <p className="text-sm font-bold text-white">Wire Transfer Submitted!</p>
+                  <p className="text-xs text-white/50 mt-1">Our team will verify your payment and activate your Pro account within 1 business day.</p>
+                </div>
+              </div>
+            ) : (
+              <>
+                <h4 className="text-xs font-bold text-white mb-1 flex items-center gap-1.5">
+                  <Send className="w-3.5 h-3.5 text-copper" />
+                  Confirm Your Wire Transfer
+                </h4>
+                <p className="text-[11px] text-white/40 mb-4">After completing the wire transfer, enter your bank's confirmation / reference number below. Our team will verify and activate your account within 1 business day.</p>
+                {!selectedPlan && (
+                  <p className="text-[11px] text-amber-400/80 mb-3 flex items-center gap-1.5">
+                    <ArrowRight className="w-3 h-3" /> Please select a plan above first.
+                  </p>
+                )}
+                <div className="flex gap-2">
+                  <input
+                    id="wire-ref-input"
+                    type="text"
+                    value={wireRefCode}
+                    onChange={e => setWireRefCode(e.target.value)}
+                    placeholder="e.g. TXN-20260522-00847291"
+                    disabled={!selectedPlan}
+                    className="flex-1 px-3.5 py-2.5 bg-white/10 border border-white/15 rounded-xl text-sm font-mono text-white placeholder-white/25 focus:border-copper focus:outline-none focus:ring-1 focus:ring-copper/40 transition-all disabled:opacity-40"
+                  />
+                  <button
+                    id="wire-submit-btn"
+                    disabled={!wireRefCode.trim() || submittingWire || !selectedPlan}
+                    onClick={async () => {
+                      if (!wireRefCode.trim() || !selectedPlan) return;
+                      setSubmittingWire(true);
+                      try {
+                        const { data: { user } } = await supabase.auth.getUser();
+                        if (user) {
+                          await supabase.from('subscriptions').upsert({
+                            organization_id: (profile as any)?.organization_id,
+                            plan: selectedPlan,
+                            status: 'pending_wire',
+                            wire_reference: wireRefCode.trim(),
+                            wire_submitted_at: new Date().toISOString(),
+                          }, { onConflict: 'organization_id' });
+                        }
+                        setWireSubmitted(true);
+                        toast.success('Wire reference submitted! We\'ll activate your account shortly.');
+                      } catch {
+                        toast.error('Submission failed. Please email billing@peakestimator.com with your reference.');
+                      }
+                      setSubmittingWire(false);
+                    }}
+                    className="flex items-center gap-1.5 px-4 py-2.5 bg-copper hover:bg-copper-hover text-white rounded-xl font-bold text-sm transition-all disabled:opacity-40 disabled:cursor-not-allowed flex-shrink-0"
+                  >
+                    {submittingWire ? (
+                      <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin inline-block" />
+                    ) : (
+                      <ArrowRight className="w-4 h-4" />
+                    )}
+                    Submit
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* Footer note */}
+          <div className="flex items-start gap-2.5 text-[11px] text-white/30 leading-relaxed">
+            <ShieldCheck className="w-3.5 h-3.5 text-copper/60 flex-shrink-0 mt-0.5" />
+            <span>Questions? Contact <span className="text-copper/80 font-semibold">billing@peakestimator.com</span> — our team responds within 4 business hours.</span>
           </div>
         </div>
       </div>

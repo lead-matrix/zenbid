@@ -4,7 +4,7 @@ import { useAppStore } from '../store/useAppStore';
 import { useEventBus } from '../hooks/useEventBus';
 import {
   HelpCircle, LifeBuoy, AlertCircle, Clock, Send, Plus,
-  FileText, ShieldCheck, CheckCircle2, ChevronRight, X, ArrowLeft, MessageSquare
+  FileText, ShieldCheck, CheckCircle2, ChevronRight, X, ArrowLeft, MessageSquare, Zap
 } from 'lucide-react';
 import { toast } from 'sonner';
 import type { SupportTicket, TicketResponse } from '../types';
@@ -29,11 +29,138 @@ export default function SupportDesk() {
   const [attachmentUrl, setAttachmentUrl] = useState('');
   const [creatingTicket, setCreatingTicket] = useState(false);
   
+  // Roadmap states
+  const [activeTab, setActiveTab] = useState<'tickets' | 'roadmap'>('tickets');
+  const [votedFeatures, setVotedFeatures] = useState<string[]>([]);
+  const [votingLoading, setVotingLoading] = useState<string | null>(null);
+  
   const responsesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     fetchTickets();
+    fetchRoadmapVotes();
   }, []);
+
+  const fetchRoadmapVotes = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data, error } = await supabase
+        .from('integration_requests')
+        .select('business_need')
+        .eq('user_id', user.id)
+        .eq('desired_workflow', 'User voted interest from roadmap panel');
+
+      if (!error && data) {
+        setVotedFeatures(data.map(item => item.business_need));
+      }
+    } catch (e) {
+      console.error('Failed to fetch roadmap votes:', e);
+    }
+  };
+
+  const handleVoteRoadmap = async (featureName: string) => {
+    if (votedFeatures.includes(featureName)) return;
+    
+    setVotingLoading(featureName);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Unauthenticated user. Please log in.');
+
+      const { data: reqData, error: reqErr } = await supabase
+        .from('integration_requests')
+        .insert({
+          user_id: user.id,
+          business_need: featureName,
+          desired_workflow: "User voted interest from roadmap panel",
+          urgency: 'medium',
+          status: 'pending review',
+          priority: 'medium'
+        })
+        .select()
+        .single();
+
+      if (reqErr) throw reqErr;
+
+      await triggerEvent({
+        entityType: 'integration',
+        entityId: reqData?.id,
+        actionType: 'requested',
+        title: `Roadmap Vote: ${featureName}`,
+        description: `Voted interest in upcoming roadmap feature: "${featureName}".`,
+        sendNotification: true,
+        notificationType: 'info'
+      });
+
+      toast.success(`Thank you for your feedback! Interest registered for "${featureName}".`);
+      setVotedFeatures(prev => [...prev, featureName]);
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || 'Failed to register vote. Please try again.');
+    } finally {
+      setVotingLoading(null);
+    }
+  };
+
+  const ROADMAP_FEATURES = [
+    {
+      name: "Stripe Deposit Collection in Proposal",
+      desc: "Enable contractors to collect upfront deposits securely via Stripe directly inside the client proposal portal."
+    },
+    {
+      name: "SMS / WhatsApp Proposal Delivery",
+      desc: "Dispatch proposal notifications, updates, and direct links via SMS or WhatsApp messages for high-speed engagement."
+    },
+    {
+      name: "Win/Loss Reason Tracking",
+      desc: "Track and analyze exact reasons why estimates were accepted or declined to optimize bidding and pricing intelligence."
+    },
+    {
+      name: "Contractor Referral Program",
+      desc: "Incentivize and track client/contractor peer-to-peer sharing with dynamic tier rewards."
+    },
+    {
+      name: "Post-Approval Calendar Scheduling",
+      desc: "Instantly schedule job kick-off dates and site walkthroughs directly on the contractor's calendar post-approval."
+    },
+    {
+      name: "Per-Project Photo Gallery & Job Binder",
+      desc: "Capture, markup, and organize on-site photos and specifications inside a centralized digital job binder."
+    },
+    {
+      name: "Win Rate & Performance Analytics",
+      desc: "Monitor precise win-rates, lead response velocities, and individual estimator performance dashboards."
+    },
+    {
+      name: "Proposal Expiry Countdown Timer (Client-facing)",
+      desc: "Drive client urgency with elegant, real-time expiry clocks on the public-facing proposal portal."
+    },
+    {
+      name: "Multi-Contact / Household CC on Proposals",
+      desc: "Keep multiple stakeholders (spouses, project managers, property owners) auto-carbon-copied on proposals."
+    },
+    {
+      name: "AI Margin Suggestion Based on Past Wins",
+      desc: "Auto-generate predictive profit margin optimizations by analyzing historical bids and local market data."
+    },
+    {
+      name: "Post-Job Google Review Request",
+      desc: "Trigger automated, brand-curated Google Review links immediately upon marked project completion."
+    },
+    {
+      name: "Side-by-Side Tier Comparison Table (Client Portal)",
+      desc: "Allow clients to toggle or compare multiple estimation tiers (Good/Better/Best) side-by-side."
+    },
+    {
+      name: "Public Contractor Profile Page",
+      desc: "Display a beautiful, public-facing company profile, verified project galleries, and verified client testimonials."
+    },
+    {
+      name: "Invoice & Change Order Generation",
+      desc: "Turn approved proposals into professional invoices and manage change orders dynamically with single-click updates."
+    }
+  ];
 
   useEffect(() => {
     if (selectedTicket) {
@@ -252,8 +379,34 @@ export default function SupportDesk() {
         </button>
       </div>
 
-      {/* Primary Workspace */}
-      <div className="flex-1 flex gap-6 overflow-hidden min-h-0 bg-white dark:bg-navy border border-app-border dark:border-navy-800 rounded-2xl shadow-card">
+      {/* Tab Switcher */}
+      <div className="flex items-center gap-2 mb-6 flex-shrink-0 border-b border-app-border dark:border-navy-800 pb-2">
+        <button
+          onClick={() => setActiveTab('tickets')}
+          className={`flex items-center gap-1.5 px-4 py-2.5 rounded-xl font-bold text-xs transition-all ${
+            activeTab === 'tickets'
+              ? 'bg-slate-100 dark:bg-navy-950 text-slate-900 dark:text-white shadow-sm border border-slate-200/60 dark:border-navy-800'
+              : 'text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
+          }`}
+        >
+          <MessageSquare className="w-3.5 h-3.5" />
+          Support Tickets
+        </button>
+        <button
+          onClick={() => setActiveTab('roadmap')}
+          className={`flex items-center gap-1.5 px-4 py-2.5 rounded-xl font-bold text-xs transition-all ${
+            activeTab === 'roadmap'
+              ? 'bg-copper/10 text-copper shadow-sm border border-copper/20'
+              : 'text-slate-400 hover:text-copper dark:hover:text-copper'
+          }`}
+        >
+          <Zap className="w-3.5 h-3.5" />
+          Feature Roadmap
+        </button>
+      </div>
+
+      {activeTab === 'tickets' ? (
+        <div className="flex-1 flex gap-6 overflow-hidden min-h-0 bg-white dark:bg-navy border border-app-border dark:border-navy-800 rounded-2xl shadow-card">
         
         {/* Left Side: Ticket List */}
         <div className={`w-full lg:w-96 flex flex-col border-r border-app-border dark:border-navy-800 flex-shrink-0 ${
@@ -430,6 +583,76 @@ export default function SupportDesk() {
         </div>
 
       </div>
+      ) : (
+        /* Feature Roadmap Grid */
+        <div className="flex-1 overflow-y-auto min-h-0 p-6 bg-slate-50/50 dark:bg-navy-950/20 border border-app-border dark:border-navy-800 rounded-2xl shadow-card scrollbar-thin">
+          <div className="max-w-4xl mx-auto mb-8 text-center">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-copper/10 border border-copper/20 rounded-full text-[10px] font-bold text-copper uppercase tracking-wider mb-3">
+              🚀 Peak Roadmap
+            </span>
+            <h2 className="text-xl sm:text-2xl font-sora font-extrabold text-slate-900 dark:text-white leading-tight">
+              SaaS Operational Feature Pipeline
+            </h2>
+            <p className="text-slate-500 dark:text-slate-400 text-xs mt-2 max-w-xl mx-auto leading-relaxed">
+              We build around your direct feedback. Review upcoming trade automation upgrades below. Click "Notify Me" to register your operational interest and prioritize development.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 max-w-7xl mx-auto">
+            {ROADMAP_FEATURES.map((feat) => {
+              const hasVoted = votedFeatures.includes(feat.name);
+              const isVoting = votingLoading === feat.name;
+              return (
+                <div
+                  key={feat.name}
+                  className="bg-white dark:bg-navy border border-app-border dark:border-navy-800/80 p-5 rounded-2xl flex flex-col justify-between hover:border-copper hover:shadow-premium transition-all duration-300 group relative overflow-hidden"
+                >
+                  <div className="absolute right-0 top-0 w-24 h-24 bg-[radial-gradient(circle_at_top_right,rgba(192,120,64,0.05),transparent)] pointer-events-none" />
+                  
+                  <div>
+                    <div className="flex items-center justify-between gap-3 mb-3">
+                      <span className="bg-slate-100 dark:bg-navy-950 text-slate-500 dark:text-slate-400 px-2 py-0.5 border border-slate-200/60 dark:border-navy-850 rounded text-[9px] font-bold uppercase tracking-wider">
+                        Coming Soon
+                      </span>
+                      {hasVoted && (
+                        <span className="flex items-center gap-1 text-[10px] font-bold text-emerald-500 dark:text-emerald-400 bg-emerald-500/5 dark:bg-emerald-500/10 px-2 py-0.5 border border-emerald-500/20 rounded-md">
+                          Voted ✓
+                        </span>
+                      )}
+                    </div>
+
+                    <h3 className="font-sora font-extrabold text-slate-900 dark:text-white text-xs sm:text-sm group-hover:text-copper transition-colors leading-tight mb-2">
+                      {feat.name}
+                    </h3>
+                    
+                    <p className="text-slate-500 dark:text-slate-400 text-[11px] sm:text-xs leading-relaxed mb-6 font-semibold">
+                      {feat.desc}
+                    </p>
+                  </div>
+
+                  <button
+                    onClick={() => handleVoteRoadmap(feat.name)}
+                    disabled={hasVoted || isVoting}
+                    className={`w-full py-2.5 rounded-xl font-bold text-[11px] transition-all flex items-center justify-center gap-1.5 shadow-sm ${
+                      hasVoted
+                        ? 'bg-slate-50 dark:bg-navy-950/45 text-slate-400 dark:text-slate-600 border border-slate-200/40 dark:border-navy-900 cursor-not-allowed'
+                        : 'bg-copper hover:bg-copper-hover disabled:opacity-50 text-white hover:-translate-y-0.5 active:translate-y-0 active:scale-95'
+                    }`}
+                  >
+                    {isVoting ? (
+                      <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    ) : hasVoted ? (
+                      <>Interested ✓</>
+                    ) : (
+                      <>Notify Me</>
+                    )}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* ── Raise Ticket Modal ──────────────────────────────── */}
       {showNewModal && (

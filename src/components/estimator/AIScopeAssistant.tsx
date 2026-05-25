@@ -1,9 +1,20 @@
-import { useState, useRef } from 'react';
-import { Sparkles, Mic, Image, X, Loader2, ChevronDown, ChevronUp } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
+import { Sparkles, Mic, Image, X, Loader2, ChevronDown, ChevronUp, MicOff } from 'lucide-react';
 import { toast } from 'sonner';
 import { apiClient } from '../../api/apiClient';
-import { saveFieldPhoto, saveFieldAudio } from '../../lib/mediaProcessor';
+import { saveFieldPhoto } from '../../lib/mediaProcessor';
 import type { TradeType } from '../../types';
+
+// ─── Web Speech API type augmentation ──────────────────────────────
+declare global {
+  interface Window {
+    SpeechRecognition: any;
+    webkitSpeechRecognition: any;
+  }
+}
+type SpeechRecognition = any;
+type SpeechRecognitionEvent = any;
+type SpeechRecognitionErrorEvent = any;
 
 interface GeneratedItem {
   description: string;
@@ -27,84 +38,102 @@ export default function AIScopeAssistant({ projectId, trade, onItemsGenerated }:
   const [mode, setMode] = useState<InputMode>('text');
   const [prompt, setPrompt] = useState('');
   const [loading, setLoading] = useState(false);
-  const [recording, setRecording] = useState(false);
-  const [recordingSeconds, setRecordingSeconds] = useState(0);
+
+  // Voice state
+  const [listening, setListening] = useState(false);
+  const [interimText, setInterimText] = useState('');
+  const [speechSupported, setSpeechSupported] = useState(true);
+
+  // Photo state
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [photoBase64, setPhotoBase64] = useState<string | null>(null);
+
+  // Result
   const [generatedSummary, setGeneratedSummary] = useState<string | null>(null);
 
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const audioChunksRef = useRef<Blob[]>([]);
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const recognitionRef = useRef<SpeechRecognition | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // ── Voice recording ─────────────────────────────────────────────
-  const startRecording = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mr = new MediaRecorder(stream);
-      mediaRecorderRef.current = mr;
-      audioChunksRef.current = [];
+  // ── Check Web Speech API support ─────────────────────────────────
+  useEffect(() => {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) setSpeechSupported(false);
+  }, []);
 
-      mr.ondataavailable = e => audioChunksRef.current.push(e.data);
-      mr.onstop = async () => {
-        const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-        await handleAudioReady(blob);
-        stream.getTracks().forEach(t => t.stop());
-      };
+  // ── Cleanup on unmount ───────────────────────────────────────────
+  useEffect(() => {
+    return () => {
+      recognitionRef.current?.abort();
+    };
+  }, []);
 
-      mr.start();
-      setRecording(true);
-      setRecordingSeconds(0);
-      timerRef.current = setInterval(() => setRecordingSeconds(s => s + 1), 1000);
-    } catch {
-      toast.error('Microphone access denied. Please allow microphone in browser settings.');
+  // ── Web Speech API voice recording ───────────────────────────────
+  const startListening = () => {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) {
+      toast.error('Voice input is not supported in this browser. Please use Chrome or Edge.');
+      return;
     }
-  };
 
-  const stopRecording = () => {
-    if (!mediaRecorderRef.current) return;
-    mediaRecorderRef.current.stop();
-    setRecording(false);
-    if (timerRef.current) clearInterval(timerRef.current);
-  };
+    const recognition = new SR();
+    recognitionRef.current = recognition;
+    recognition.lang = 'en-US';
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.maxAlternatives = 1;
 
-  const handleAudioReady = async (blob: Blob) => {
-    setLoading(true);
-    try {
-      // Save to IndexedDB first (offline-safe)
-      await saveFieldAudio(projectId, blob);
+    let finalTranscript = prompt;
 
-      // Convert to base64 for Edge Function
-      const reader = new FileReader();
-      reader.readAsDataURL(blob);
-      reader.onloadend = async () => {
-        const base64 = (reader.result as string).split(',')[1];
-        const { data, error } = await apiClient.transcribeAudio({
-          projectId,
-          audioBase64: base64,
-          mimeType: blob.type,
-          durationSeconds: recordingSeconds,
-        });
+    recognition.onstart = () => {
+      setListening(true);
+      setInterimText('');
+    };
 
-        if (error || !data) {
-          toast.error('Transcription failed. Try typing your description instead.');
-          setLoading(false);
-          return;
+    recognition.onresult = (event: SpeechRecognitionEvent) => {
+      let interim = '';
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const result = event.results[i];
+        if (result.isFinal) {
+          finalTranscript += (finalTranscript ? ' ' : '') + result[0].transcript;
+          setPrompt(finalTranscript);
+        } else {
+          interim += result[0].transcript;
         }
+      }
+      setInterimText(interim);
+    };
 
-        setPrompt(data.transcript);
-        setMode('text');
-        setLoading(false);
-        toast.success('Voice transcribed — review and generate scope.');
-      };
+    recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
+      if (event.error !== 'aborted') {
+        toast.error(`Voice error: ${event.error}. Try again or use text mode.`);
+      }
+      setListening(false);
+      setInterimText('');
+    };
+
+    recognition.onend = () => {
+      setListening(false);
+      setInterimText('');
+    };
+
+    try {
+      recognition.start();
     } catch {
-      toast.error('Audio processing failed.');
-      setLoading(false);
+      toast.error('Could not start voice recognition. Please refresh and try again.');
     }
   };
 
-  // ── Photo upload ────────────────────────────────────────────────
+  const stopListening = () => {
+    recognitionRef.current?.stop();
+    setListening(false);
+    setInterimText('');
+    if (prompt.trim()) {
+      toast.success('Voice captured — review and generate scope.');
+      setMode('text'); // Switch to text so user can review
+    }
+  };
+
+  // ── Photo upload ─────────────────────────────────────────────────
   const handlePhotoSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -114,7 +143,6 @@ export default function AIScopeAssistant({ projectId, trade, onItemsGenerated }:
       const saved = await saveFieldPhoto(projectId, file);
       setPhotoPreview(saved.previewUrl ?? null);
 
-      // Convert compressed blob to base64
       const reader = new FileReader();
       reader.readAsDataURL(saved.blob);
       reader.onloadend = () => {
@@ -127,7 +155,7 @@ export default function AIScopeAssistant({ projectId, trade, onItemsGenerated }:
     }
   };
 
-  // ── AI generation ───────────────────────────────────────────────
+  // ── AI scope generation ──────────────────────────────────────────
   const handleGenerate = async () => {
     if (!prompt.trim() && !photoBase64) {
       toast.error('Add a description or photo before generating.');
@@ -159,8 +187,6 @@ export default function AIScopeAssistant({ projectId, trade, onItemsGenerated }:
     setPhotoBase64(null);
   };
 
-  const formatTime = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
-
   return (
     <div className="bg-white dark:bg-navy-900 rounded-2xl border border-slate-100 dark:border-navy-800 shadow-card overflow-hidden">
       {/* Toggle header */}
@@ -188,7 +214,7 @@ export default function AIScopeAssistant({ projectId, trade, onItemsGenerated }:
             {(['text', 'voice', 'photo'] as InputMode[]).map(m => (
               <button
                 key={m}
-                onClick={() => setMode(m)}
+                onClick={() => { setMode(m); if (listening) stopListening(); }}
                 className={`flex-1 py-2 rounded-xl text-xs font-bold capitalize transition-all ${
                   mode === m
                     ? 'bg-violet-600 text-white shadow-sm'
@@ -211,20 +237,35 @@ export default function AIScopeAssistant({ projectId, trade, onItemsGenerated }:
             />
           )}
 
-          {/* Voice mode */}
+          {/* Voice mode — Web Speech API (free, browser-native) */}
           {mode === 'voice' && (
             <div className="flex flex-col items-center gap-4 py-4">
-              {recording ? (
+              {!speechSupported ? (
+                <div className="text-center space-y-2">
+                  <MicOff className="w-10 h-10 text-slate-300 mx-auto" />
+                  <p className="text-xs text-slate-500 font-semibold">Voice input not supported</p>
+                  <p className="text-[11px] text-slate-400">Please use Google Chrome or Microsoft Edge, or switch to Text mode.</p>
+                </div>
+              ) : listening ? (
                 <>
-                  <div className="w-16 h-16 rounded-full bg-red-500 flex items-center justify-center animate-pulse shadow-lg shadow-red-500/30">
+                  <div className="w-16 h-16 rounded-full bg-red-500 flex items-center justify-center shadow-lg shadow-red-500/30 relative">
                     <Mic className="w-7 h-7 text-white" />
+                    {/* Pulse rings */}
+                    <span className="absolute inset-0 rounded-full bg-red-400 animate-ping opacity-40" />
                   </div>
-                  <div className="text-sm font-bold text-red-500 font-sora">{formatTime(recordingSeconds)}</div>
+                  {interimText && (
+                    <p className="text-[11px] text-slate-400 italic text-center max-w-xs">"{interimText}"</p>
+                  )}
+                  {prompt && (
+                    <p className="text-xs text-violet-600 dark:text-violet-400 text-center max-w-xs font-semibold">
+                      Captured: "{prompt.slice(0, 80)}{prompt.length > 80 ? '…' : ''}"
+                    </p>
+                  )}
                   <button
-                    onClick={stopRecording}
+                    onClick={stopListening}
                     className="px-6 py-2.5 bg-red-500 hover:bg-red-600 text-white rounded-xl text-xs font-bold transition-all"
                   >
-                    Stop Recording
+                    Stop & Use Transcript
                   </button>
                 </>
               ) : (
@@ -232,13 +273,29 @@ export default function AIScopeAssistant({ projectId, trade, onItemsGenerated }:
                   <div className="w-16 h-16 rounded-full bg-violet-100 dark:bg-violet-950/40 flex items-center justify-center">
                     <Mic className="w-7 h-7 text-violet-600" />
                   </div>
-                  <p className="text-xs text-slate-500 text-center">Press Start and describe the job aloud</p>
+                  {prompt && (
+                    <p className="text-xs text-violet-600 dark:text-violet-400 text-center max-w-xs font-semibold">
+                      ✓ "{prompt.slice(0, 80)}{prompt.length > 80 ? '…' : ''}"
+                    </p>
+                  )}
+                  <p className="text-xs text-slate-500 text-center">
+                    {prompt ? 'Press again to add more, or switch to Text to edit' : 'Press Start and describe the job aloud'}
+                  </p>
                   <button
-                    onClick={startRecording}
+                    onClick={startListening}
                     className="px-6 py-2.5 bg-violet-600 hover:bg-violet-700 text-white rounded-xl text-xs font-bold transition-all"
                   >
-                    Start Recording
+                    {prompt ? 'Add More Voice' : 'Start Speaking'}
                   </button>
+                  {prompt && (
+                    <button
+                      onClick={handleGenerate}
+                      disabled={loading}
+                      className="px-6 py-2.5 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-violet-500/20 disabled:opacity-50 flex items-center gap-2"
+                    >
+                      {loading ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Generating…</> : <><Sparkles className="w-3.5 h-3.5" /> Generate Scope</>}
+                    </button>
+                  )}
                 </>
               )}
             </div>
@@ -287,7 +344,7 @@ export default function AIScopeAssistant({ projectId, trade, onItemsGenerated }:
             </div>
           )}
 
-          {/* Generate button */}
+          {/* Generate button (text & photo modes) */}
           {mode !== 'voice' && (
             <button
               id="ai-generate-btn"

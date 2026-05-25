@@ -27,7 +27,7 @@ export interface OfflineMedia {
 }
 
 class IndexedDBManager {
-  private dbName = 'ZenBidOfflineCache';
+  private dbName = 'PeakEstimatorOfflineCache';
   private dbVersion = 1;
   private db: IDBDatabase | null = null;
 

@@ -21,7 +21,7 @@ enabled = true
 [auth]
 enabled = true
 site_url = "https://lmtrx.us"
-additional_redirect_urls = ["https://lmtrx.us/**", "https://www.lmtrx.us/**", "https://zenbid.vercel.app/**", "https://peakestimator.vercel.app/**", "http://localhost:3000"]
+additional_redirect_urls = ["https://lmtrx.us/**", "https://www.lmtrx.us/**", "https://peakestimator.vercel.app/**", "http://localhost:3000"]
 jwt_expiry = 3600
 enable_refresh_token_rotation = true
 
@@ -32,4 +32,22 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.admin-manager]
+verify_jwt = true
+
+[functions.billing-info]
+verify_jwt = true
+
+[functions.admin-wire-approve]
+verify_jwt = true
+
+[functions.ai-estimator]
+verify_jwt = true
+
+[functions.ai-transcribe]
+verify_jwt = true
+
+[functions.email-followup]
+verify_jwt = false
+
+[functions.version-lock]
 verify_jwt = true

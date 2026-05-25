@@ -11,17 +11,6 @@ CREATE TABLE IF NOT EXISTS public.organizations (
   created_at timestamptz DEFAULT now(),
   updated_at timestamptz DEFAULT now()
 );
-ALTER TABLE public.organizations ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY "Users read own organization" ON public.organizations
-  FOR SELECT USING (
-    id = (SELECT organization_id FROM public.profiles WHERE id = auth.uid())
-  );
-
-CREATE POLICY "Superadmins manage organizations" ON public.organizations
-  FOR ALL USING (
-    EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND is_admin = true)
-  );
 
 -- 1b. Organization Settings table
 CREATE TABLE IF NOT EXISTS public.organization_settings (
@@ -31,18 +20,6 @@ CREATE TABLE IF NOT EXISTS public.organization_settings (
   payment_methods text[] DEFAULT '{"credit_card", "bank_transfer"}'::text[],
   updated_at timestamptz DEFAULT now()
 );
-ALTER TABLE public.organization_settings ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY "Users read own organization settings" ON public.organization_settings
-  FOR SELECT USING (
-    organization_id = (SELECT organization_id FROM public.profiles WHERE id = auth.uid())
-  );
-
-CREATE POLICY "Admins manage organization settings" ON public.organization_settings
-  FOR ALL USING (
-    organization_id = (SELECT organization_id FROM public.profiles WHERE id = auth.uid()) AND
-    EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role IN ('super_admin', 'admin'))
-  );
 
 -- 2. Modify profiles table to support role and tenant
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS role text DEFAULT 'estimator' CHECK (role IN ('super_admin', 'admin', 'sales_manager', 'estimator', 'technician', 'viewer'));
@@ -59,7 +36,32 @@ CREATE TABLE IF NOT EXISTS public.organization_members (
   updated_at timestamptz DEFAULT now(),
   CONSTRAINT unique_org_member UNIQUE (organization_id, profile_id)
 );
+
+-- RLS & Policies Definition Block
+ALTER TABLE public.organizations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.organization_settings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.organization_members ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users read own organization" ON public.organizations
+  FOR SELECT USING (
+    id = (SELECT organization_id FROM public.profiles WHERE id = auth.uid())
+  );
+
+CREATE POLICY "Superadmins manage organizations" ON public.organizations
+  FOR ALL USING (
+    EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND is_admin = true)
+  );
+
+CREATE POLICY "Users read own organization settings" ON public.organization_settings
+  FOR SELECT USING (
+    organization_id = (SELECT organization_id FROM public.profiles WHERE id = auth.uid())
+  );
+
+CREATE POLICY "Admins manage organization settings" ON public.organization_settings
+  FOR ALL USING (
+    organization_id = (SELECT organization_id FROM public.profiles WHERE id = auth.uid()) AND
+    EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role IN ('super_admin', 'admin'))
+  );
 
 CREATE POLICY "Users read members of own organization" ON public.organization_members
   FOR SELECT USING (

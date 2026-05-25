@@ -2447,7 +2447,7 @@ Please assign an administrator immediately to prevent collision and address.`,
               <h2 className="font-sora font-extrabold text-slate-900 dark:text-white text-sm flex items-center gap-2">
                 <CreditCard className="w-4 h-4 text-copper" /> System & Subscription Status
               </h2>
-              <p className="text-[11px] text-slate-400 mt-0.5">Monitor Stripe billing lifecycle, active usage metrics, and storage consumption.</p>
+              <p className="text-[11px] text-slate-400 mt-0.5">Monitor wire transfer payments, active usage metrics, and storage consumption.</p>
             </div>
             <button onClick={fetchSystemLogs} className="p-2 hover:bg-slate-100 dark:hover:bg-navy-950 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-white transition-all">
               <RefreshCw className="w-4 h-4" />
@@ -2458,47 +2458,69 @@ Please assign an administrator immediately to prevent collision and address.`,
             <div className="h-40 flex items-center justify-center"><div className="w-7 h-7 border-4 border-copper border-t-transparent rounded-full animate-spin" /></div>
           ) : (
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* Subscription Card */}
+              {/* Wire Transfer Payment Card */}
               <div className="lg:col-span-1 bg-white dark:bg-navy border border-app-border dark:border-navy-800 shadow-card rounded-2xl p-6">
                 <h3 className="font-sora font-extrabold text-xs text-slate-900 dark:text-white mb-5 flex items-center gap-2">
-                  <CreditCard className="w-3.5 h-3.5 text-copper" /> Stripe Subscription
+                  <CreditCard className="w-3.5 h-3.5 text-copper" /> Wire Transfer Payment
                 </h3>
                 {subscription ? (
                   <div className="space-y-3 text-xs">
                     <div className="flex justify-between items-center py-2 border-b border-slate-100 dark:border-navy-900">
                       <span className="font-semibold text-slate-500 dark:text-slate-400">Status</span>
                       <span className={`font-extrabold px-2.5 py-1 rounded-xl border text-[10px] uppercase tracking-wider ${
-                        subscription.status === 'active'
+                        (subscription.status as string) === 'active'
                           ? 'bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-950/20 dark:border-emerald-900/30'
-                          : subscription.status === 'past_due'
+                          : (subscription.status as string) === 'pending_wire'
+                          ? 'bg-amber-50 text-amber-600 border-amber-200'
+                          : (subscription.status as string) === 'past_due'
                           ? 'bg-amber-50 text-amber-600 border-amber-200'
                           : 'bg-rose-50 text-rose-600 border-rose-200'
                       }`}>
-                        {subscription.status}
+                        {(subscription.status as string) === 'pending_wire' ? '⏳ Pending Wire' : subscription.status}
                       </span>
                     </div>
-                    {subscription.price_id && (
+                    {(subscription as any).wire_reference && (
                       <div className="flex justify-between py-2 border-b border-slate-100 dark:border-navy-900">
-                        <span className="font-semibold text-slate-500 dark:text-slate-400">Price ID</span>
-                        <span className="font-mono text-[9px] text-slate-400 truncate max-w-[140px]">{subscription.price_id}</span>
+                        <span className="font-semibold text-slate-500 dark:text-slate-400">Wire Ref</span>
+                        <span className="font-mono text-[9px] text-slate-400 truncate max-w-[140px]">{(subscription as any).wire_reference}</span>
                       </div>
                     )}
-                    {subscription.stripe_subscription_id && (
+                    {(subscription as any).wire_submitted_at && (
                       <div className="flex justify-between py-2 border-b border-slate-100 dark:border-navy-900">
-                        <span className="font-semibold text-slate-500 dark:text-slate-400">Stripe ID</span>
-                        <span className="font-mono text-[9px] text-slate-400 truncate max-w-[140px]">{subscription.stripe_subscription_id}</span>
+                        <span className="font-semibold text-slate-500 dark:text-slate-400">Submitted</span>
+                        <span className="font-bold text-slate-900 dark:text-white">{new Date((subscription as any).wire_submitted_at).toLocaleDateString()}</span>
                       </div>
                     )}
                     {subscription.current_period_end && (
                       <div className="flex justify-between py-2 border-b border-slate-100 dark:border-navy-900">
-                        <span className="font-semibold text-slate-500 dark:text-slate-400">Period End</span>
+                        <span className="font-semibold text-slate-500 dark:text-slate-400">Active Until</span>
                         <span className="font-bold text-slate-900 dark:text-white">{new Date(subscription.current_period_end).toLocaleDateString()}</span>
                       </div>
                     )}
-                    <div className="flex justify-between py-2">
-                      <span className="font-semibold text-slate-500 dark:text-slate-400">Subscribed</span>
+                    <div className="flex justify-between py-2 border-b border-slate-100 dark:border-navy-900">
+                      <span className="font-semibold text-slate-500 dark:text-slate-400">Registered</span>
                       <span className="font-bold text-slate-900 dark:text-white">{new Date(subscription.created_at).toLocaleDateString()}</span>
                     </div>
+                    {/* Admin Approve Button */}
+                    {(subscription.status as string) === 'pending_wire' && (
+                      <button
+                        onClick={async () => {
+                          const periodEnd = new Date();
+                          periodEnd.setFullYear(periodEnd.getFullYear() + 1);
+                          await supabase.from('subscriptions').update({
+                            status: 'active',
+                            current_period_end: periodEnd.toISOString(),
+                          }).eq('organization_id', subscription.organization_id);
+                          await supabase.from('organizations').update({ billing_tier: 'pro' })
+                            .eq('id', subscription.organization_id);
+                          fetchSystemLogs();
+                          toast.success('Wire payment approved — account upgraded to Pro!');
+                        }}
+                        className="w-full mt-2 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5"
+                      >
+                        ✓ Approve Wire & Activate Pro
+                      </button>
+                    )}
                   </div>
                 ) : (
                   <div className="py-8 text-center">
@@ -2511,7 +2533,7 @@ Please assign an administrator immediately to prevent collision and address.`,
               {/* Usage Metrics Cards */}
               <div className="lg:col-span-2 space-y-4">
                 <h3 className="font-sora font-extrabold text-xs text-slate-900 dark:text-white flex items-center gap-2">
-                  <TrendingUp className="w-3.5 h-3.5 text-copper" /> Billing Period Usage Metrics
+                  <TrendingUp className="w-3.5 h-3.5 text-copper" /> Usage Period Metrics
                 </h3>
 
                 {usageStats.length === 0 ? (

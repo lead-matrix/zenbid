@@ -732,7 +732,7 @@ export default function ClientPortal() {
         {/* ── Footer ── */}
         <div className="bg-navy-900 dark:bg-navy-950 border border-navy-800 dark:border-navy-900 rounded-2xl px-6 py-4 text-center transition-colors">
           <div className="text-slate-400 dark:text-slate-500 text-xs font-semibold">
-            {project.company_name} · Powered by ZenBid · {new Date().getFullYear()}
+            {project.company_name} · Powered by PeakEstimator · {new Date().getFullYear()}
           </div>
         </div>
       </div>

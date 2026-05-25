@@ -22,7 +22,7 @@ export const DEFAULT_FOLLOW_UP_RULES: FollowUpRule[] = [
     triggerEvent: 'viewed',
     delayHours: 2,
     templateType: 'follow-up',
-    subject: 'Any questions about your ZenBid proposal?',
+    subject: 'Any questions about your PeakEstimator proposal?',
     isActive: true,
   },
   {
@@ -40,7 +40,7 @@ export const DEFAULT_FOLLOW_UP_RULES: FollowUpRule[] = [
     triggerEvent: 'created',
     delayHours: 24,
     templateType: 'follow-up',
-    subject: 'Reminder: Review your ZenBid proposal',
+    subject: 'Reminder: Review your PeakEstimator proposal',
     isActive: true,
   },
   {

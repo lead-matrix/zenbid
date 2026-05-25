@@ -1,4 +1,4 @@
-# ZenBid Pro: Master Sales & Training Playbook
+# PeakEstimator Pro: Master Sales & Training Playbook
 
 ## 🧠 The Core Philosophy
 To sell to blue-collar business owners (contractors, plumbers, roofers), you must respect one universal rule: **They are incredibly busy, often putting out fires, and their BS meter is highly tuned.**
@@ -28,7 +28,7 @@ You cannot sound like a typical telemarketer. You need to sound like an industry
 > **You:** "Got it. And when you finally send that PDF over, how often are you chasing them down a week later, just to find out they went with the guy who gave them a price on the spot?"
 
 ### Phase 3: The Pain-Killer Pitch
-*Present ZenBid Pro as the immediate cure to the pain discovered above.*
+*Present PeakEstimator Pro as the immediate cure to the pain discovered above.*
 
 > **You:** "That’s exactly why I called. What if you could sit in your truck, open your phone, tap three buttons to pull your exact materials and labor rates, and instantly text the homeowner a premium, branded proposal? 
 > 
@@ -43,7 +43,7 @@ You cannot sound like a typical telemarketer. You need to sound like an industry
 > 
 > **You:** "What's your mobile number? I’m going to text you a live proposal right now so you can see exactly what your customers will see."
 > 
-> *(Instantly create a fake project in ZenBid Pro, click 'Share', and text them the link).*
+> *(Instantly create a fake project in PeakEstimator Pro, click 'Share', and text them the link).*
 > 
 > **You:** "Click that link. See how it has your company name at the top? Scroll down. See how clean the line items are? Now, click that green **'Approve This Bid'** button."
 > 
@@ -53,7 +53,7 @@ You cannot sound like a typical telemarketer. You need to sound like an industry
 
 ### 🛑 Crucial Objection Handling
 **"We already use Jobber/ServiceTitan."**
-> **Response:** "Those are great for dispatching your trucks. But they are heavy, clunky, and complicated to build a quote in. ZenBid Pro is a dedicated closing tool. It’s a scalpel, not a Swiss Army knife. Use them for your scheduling, use ZenBid when you need to actually win the $15,000 job."
+> **Response:** "Those are great for dispatching your trucks. But they are heavy, clunky, and complicated to build a quote in. PeakEstimator Pro is a dedicated closing tool. It’s a scalpel, not a Swiss Army knife. Use them for your scheduling, use PeakEstimator when you need to actually win the $15,000 job."
 
 ---
 
@@ -66,7 +66,7 @@ If they say, *"How does this work?"*, do not tell them to visit a website. Maint
 * **Slide 1: Cover** - "Stop Writing Estimates. Start Closing Jobs."
 * **Slide 2: The 8:00 PM Kitchen Table** - You didn't start a business to do paperwork at night.
 * **Slide 3: The Cost of Being Slow** - The first quote usually wins. Slow quotes kill momentum.
-* **Slide 4: The Pain Killer** - ZenBid Pro features (Pre-loaded price books, automated margins, 1-click send).
+* **Slide 4: The Pain Killer** - PeakEstimator Pro features (Pre-loaded price books, automated margins, 1-click send).
 * **Slide 5: The "Wow" Factor** - Show the frictionless mobile Client Portal. 
 * **Slide 6: The ROI** - Save 10+ hours a week, increase close rates by 20%, protect margins.
 
@@ -87,7 +87,7 @@ If they say, *"How does this work?"*, do not tell them to visit a website. Maint
 1. **Send the Deck Live:** "I’m texting you the deck right now. Make sure it opens."
 2. **The Assumptive Drop:** "To get your account spun up today, we start with a 30-day trial phase for just $499. That strictly covers our costs to securely provision your servers, load your price books, and give you white-glove support. Once you see the ROI after 30 days, we'll lock you in for the year. What’s the best email to send your activation link to?"
 3. **The Link & The Silence:** "I just texted your secure Stripe checkout link. Go ahead and click that..." **Shut up and wait.** Let them pull out their card or use Apple Pay.
-4. **The Boom:** *(Phone buzzes)* "Boom. Got it, John. Payment cleared. Welcome to ZenBid Pro. I’m firing up your account right now."
+4. **The Boom:** *(Phone buzzes)* "Boom. Got it, John. Payment cleared. Welcome to PeakEstimator Pro. I’m firing up your account right now."
 
 ### Method 2: The Virtual Terminal (Live Card Capture)
 *Use this if links are causing friction or aren't ready. This projects extreme confidence.*

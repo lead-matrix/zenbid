@@ -135,4 +135,16 @@ export const apiClient = {
     return invokeFunction('ai-transcribe', req);
   },
 
+  /**
+   * Create a Stripe subscription/payment checkout session.
+   * Routes to: supabase/functions/stripe-checkout/index.ts
+   */
+  createStripeSession(req: {
+    plan: 'pro' | 'enterprise';
+    successUrl?: string;
+    cancelUrl?: string;
+  }): Promise<ApiResponse<{ sessionId: string; url: string }>> {
+    return invokeFunction('stripe-checkout', req);
+  },
+
 } as const;
