@@ -66,6 +66,7 @@ export default function AdminPortal() {
   const [inviteCompany, setInviteCompany] = useState('');
   const [inviting, setInviting] = useState(false);
   const [generatedInviteLink, setGeneratedInviteLink] = useState<string | null>(null);
+  const [pendingWaitlistId, setPendingWaitlistId] = useState<string | null>(null);
 
   // Email Sandbox States
   const [selectedEmailType, setSelectedEmailType] = useState<string>('welcome');
@@ -606,6 +607,13 @@ export default function AdminPortal() {
         `${import.meta.env.VITE_SUPABASE_URL?.replace('supabase.co', 'supabase.co')}/auth/v1/verify?token=...`;
       setGeneratedInviteLink(data?.action_link || null);
       toast.success(`Invitation email sent to ${inviteEmail}!`);
+
+      // If this invite came from the waitlist queue, auto-remove the entry
+      if (pendingWaitlistId) {
+        await supabase.from('waitlist').delete().eq('id', pendingWaitlistId);
+        setPendingWaitlistId(null);
+      }
+
       fetchData();
     } catch (err) {
       toast.error((err as Error).message);
@@ -644,6 +652,7 @@ export default function AdminPortal() {
     setInviteEmail(item.email);
     setInviteName(item.name || '');
     setInviteCompany(item.company || '');
+    setPendingWaitlistId(item.id);
     setShowInviteModal(true);
   };
 
@@ -1192,7 +1201,7 @@ Please assign an administrator immediately to prevent collision and address.`,
                 <p className="text-[11px] text-slate-400 mt-0.5">An email with a secure sign-in link will be sent immediately.</p>
               </div>
               <button
-                onClick={() => { setShowInviteModal(false); setGeneratedInviteLink(null); setInviteEmail(''); setInviteName(''); setInviteCompany(''); }}
+                onClick={() => { setShowInviteModal(false); setGeneratedInviteLink(null); setInviteEmail(''); setInviteName(''); setInviteCompany(''); setPendingWaitlistId(null); }}
                 className="p-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-navy-800 transition-colors"
               >
                 <X className="w-4 h-4 text-slate-400" />
@@ -1223,7 +1232,7 @@ Please assign an administrator immediately to prevent collision and address.`,
                   </div>
                 </div>
                 <button
-                  onClick={() => { setShowInviteModal(false); setGeneratedInviteLink(null); setInviteEmail(''); setInviteName(''); setInviteCompany(''); }}
+                  onClick={() => { setShowInviteModal(false); setGeneratedInviteLink(null); setInviteEmail(''); setInviteName(''); setInviteCompany(''); setPendingWaitlistId(null); }}
                   className="w-full px-4 py-2.5 rounded-xl bg-slate-100 dark:bg-navy-800 text-sm font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-navy-700 transition-all"
                 >
                   Done
@@ -1281,7 +1290,7 @@ Please assign an administrator immediately to prevent collision and address.`,
                   </button>
                   <button
                     type="button"
-                    onClick={() => { setShowInviteModal(false); setInviteEmail(''); setInviteName(''); setInviteCompany(''); }}
+                    onClick={() => { setShowInviteModal(false); setInviteEmail(''); setInviteName(''); setInviteCompany(''); setPendingWaitlistId(null); }}
                     className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-navy-700 text-sm font-bold text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-navy-800 transition-all"
                   >
                     Cancel
