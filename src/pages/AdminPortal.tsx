@@ -2526,11 +2526,11 @@ Please assign an administrator immediately to prevent collision and address.`,
           </div>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             {[
-              { label: 'Active Seats', value: members.filter(m => !m.is_admin).length, suffix: '', color: 'text-white', bg: 'bg-white dark:bg-navy', icon: Users },
-              { label: 'Active Seats', value: members.filter(m => !m.is_admin).length, suffix: ' seats', color: 'text-emerald-400', bg: 'bg-white dark:bg-navy', icon: DollarSign },
-              { label: 'Waitlist', value: waitlist.length, suffix: ' pending', color: 'text-amber-400', bg: 'bg-white dark:bg-navy', icon: UserCheck },
-              { label: 'Support Open', value: supportTickets.filter(t => t.status === 'open').length, suffix: '', color: 'text-rose-400', bg: 'bg-white dark:bg-navy', icon: HelpCircle },
-            ].map(({ label, value, suffix = '', prefix = '', color, bg, icon: Icon }) => (
+              { label: 'Active Seats', value: members.filter(m => !m.is_admin).length, suffix: '', prefix: '', color: 'text-white', bg: 'bg-white dark:bg-navy', icon: Users },
+              { label: 'Est. MRR', value: members.filter(m => !m.is_admin).length * 99, suffix: '', prefix: '$', color: 'text-emerald-400', bg: 'bg-white dark:bg-navy', icon: DollarSign },
+              { label: 'Waitlist', value: waitlist.length, suffix: ' pending', prefix: '', color: 'text-amber-400', bg: 'bg-white dark:bg-navy', icon: UserCheck },
+              { label: 'Support Open', value: supportTickets.filter(t => t.status === 'open').length, suffix: '', prefix: '', color: 'text-rose-400', bg: 'bg-white dark:bg-navy', icon: HelpCircle },
+            ].map(({ label, value, suffix, prefix, color, bg, icon: Icon }) => (
               <div key={label} className={`${bg} border border-app-border dark:border-navy-800 rounded-2xl p-5 shadow-card`}>
                 <div className="flex items-center justify-between mb-3">
                   <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{label}</span>
