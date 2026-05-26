@@ -41,7 +41,7 @@ serve(async (req) => {
     }
 
     const resendKey = Deno.env.get("RESEND_API_KEY");
-    const siteUrl = Deno.env.get("SITE_URL") || "https://lmtrx.us";
+    const siteUrl = Deno.env.get("SITE_URL") || "https://peakestimator.com";
     const portalUrl = `${siteUrl}/approve/${project.share_token}`;
 
     const clientName = project.client_name || "Valued Client";

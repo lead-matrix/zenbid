@@ -4,7 +4,7 @@ import {
   ArrowRight, CheckCircle, X, Zap, Star, Shield,
   ChevronRight, Play, TrendingUp, Clock, Smartphone,
   FileText, Users, Award, BarChart3, Camera, Hammer,
-  MousePointer, Pen, Trophy, Plus, Minus
+  MousePointer, Pen, Trophy, Plus, Minus, Bell
 } from 'lucide-react';
 import { supabase } from '../api/supabase';
 import { toast } from 'sonner';
@@ -865,7 +865,176 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── FINAL CTA ──────────────────────────────────────────── */}
+      {/* ══════════════════════════════════════════════════════
+           WHAT ACTUALLY MAKES US DIFFERENT
+         ══════════════════════════════════════════════════════ */}
+      <section className="py-24 sm:py-32 bg-[#060B14] relative overflow-hidden">
+        <div className="absolute bottom-0 left-1/3 w-[500px] h-[300px] bg-copper/5 rounded-full blur-[100px] pointer-events-none" />
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 relative z-10">
+          <div className="text-center mb-16">
+            <div className="inline-flex items-center gap-2 bg-white/5 border border-white/10 rounded-full px-4 py-1.5 text-[11px] text-white/60 font-semibold uppercase tracking-widest mb-5">
+              <Zap className="w-3 h-3 text-copper animate-pulse" /> Exclusive Capabilities
+            </div>
+            <h2 className="text-3xl sm:text-4xl font-sora font-extrabold text-white mb-4 leading-tight">
+              Features Competitors Can't<br />
+              <span className="text-copper">Copy Overnight.</span>
+            </h2>
+            <p className="text-white/50 text-base max-w-xl mx-auto">These are the specific things we built that will make homeowners remember your business — and make you impossible to replace.</p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            {[
+              {
+                emoji: '💰',
+                title: 'Financing Calculator on Every Proposal',
+                desc: 'Homeowners see monthly payment breakdowns (e.g. $228/mo for 60 months) right inside your proposal. Contractors with financing options close 40% more jobs. No other proposal tool embeds this.',
+                tag: 'Closes More Jobs',
+                tagColor: 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20',
+              },
+              {
+                emoji: '🎨',
+                title: 'Your Brand. Zero PeakEstimator Trace.',
+                desc: 'Upload your logo once. Every PDF, every client portal link, every signature page shows your company name and colors. Clients never see "Powered by" anything — unless you want them to.',
+                tag: 'White-label Ready',
+                tagColor: 'text-violet-400 bg-violet-400/10 border-violet-400/20',
+              },
+              {
+                emoji: '📊',
+                title: 'Proposal Analytics That Actually Matter',
+                desc: 'Know exactly when your client opened the proposal, which tier they spent the most time on, and when they dropped off. Follow up at exactly the right moment with context.',
+                tag: 'Unfair Advantage',
+                tagColor: 'text-copper bg-copper/10 border-copper/20',
+              },
+              {
+                emoji: '📸',
+                title: 'AI Scope Generator from Job Site Photos',
+                desc: 'Upload 3 photos of the job site and AI builds your line items automatically — with quantities. No other estimating tool does this. You go from photos to proposal in under 4 minutes.',
+                tag: 'AI-Powered',
+                tagColor: 'text-blue-400 bg-blue-400/10 border-blue-400/20',
+              },
+              {
+                emoji: '⚡',
+                title: 'Digital Change Orders — On the Fly',
+                desc: 'Scope changed mid-job? Send a change order from the same workspace. Client signs it on their phone in seconds. Stop losing money on verbal agreements that disappear.',
+                tag: 'Protect Your Margin',
+                tagColor: 'text-amber-400 bg-amber-400/10 border-amber-400/20',
+              },
+              {
+                emoji: '📋',
+                title: 'Sub-contractor Bid Leveling',
+                desc: 'Invite 3 subs for a scope, collect their bids, and compare them side by side in a structured leveling table. Pick the best value with full context — not just the cheapest.',
+                tag: 'Project Control',
+                tagColor: 'text-rose-400 bg-rose-400/10 border-rose-400/20',
+              },
+              {
+                emoji: '⏱️',
+                title: 'Proposal Expiry Countdown',
+                desc: 'Every proposal shows a live countdown timer on the client portal — "This offer expires in 1 day 14 hours." Creates urgency without a single sales call.',
+                tag: 'Closes Faster',
+                tagColor: 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20',
+              },
+              {
+                emoji: '🔒',
+                title: 'Auto-Generated Lien Waivers',
+                desc: 'The moment a deposit is marked paid, a conditional lien waiver is generated for client signature. Contractors pay lawyers $500+ per project for this — you get it for free.',
+                tag: 'Legal Protection',
+                tagColor: 'text-slate-300 bg-white/5 border-white/10',
+              },
+              {
+                emoji: '📅',
+                title: 'Job Schedule + Milestone Tracker',
+                desc: 'Set milestones, crew days, and deadlines per project. The client portal shows a live progress bar. Clients stop calling "when is the crew coming?" — it\'s all right there.',
+                tag: 'Client Trust',
+                tagColor: 'text-violet-400 bg-violet-400/10 border-violet-400/20',
+              },
+            ].map(({ emoji, title, desc, tag, tagColor }) => (
+              <div key={title} className="group bg-white/[0.02] hover:bg-white/[0.05] border border-white/8 hover:border-white/15 rounded-3xl p-6 transition-all duration-300 hover:-translate-y-1">
+                <div className="text-3xl mb-4">{emoji}</div>
+                <div className={`inline-flex items-center text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-lg border mb-3 ${tagColor}`}>{tag}</div>
+                <h3 className="text-white font-bold text-sm font-sora mb-2 leading-tight">{title}</h3>
+                <p className="text-white/45 text-xs leading-relaxed">{desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ══════════════════════════════════════════════════════
+           UPCOMING FEATURES — Request Integration
+         ══════════════════════════════════════════════════════ */}
+      <section className="py-24 sm:py-32 bg-[#080D1A] relative overflow-hidden">
+        <div className="absolute top-1/2 right-0 w-[400px] h-[400px] bg-indigo-500/5 rounded-full blur-[100px] pointer-events-none" />
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 relative z-10">
+          <div className="text-center mb-14">
+            <div className="inline-flex items-center gap-2 bg-indigo-500/10 border border-indigo-500/20 rounded-full px-4 py-1.5 text-[11px] text-indigo-300 font-semibold uppercase tracking-widest mb-5">
+              <Bell className="w-3 h-3" /> Coming Soon
+            </div>
+            <h2 className="text-3xl sm:text-4xl font-sora font-extrabold text-white mb-4 leading-tight">
+              The Roadmap Is Built<br />
+              <span className="text-copper">Around Your Revenue.</span>
+            </h2>
+            <p className="text-white/50 text-base max-w-xl mx-auto">These features are in active development. Contractors who request them early get priority access and shape how they are built.</p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-10">
+            {[
+              {
+                emoji: '🎤',
+                title: 'Smart Voice Drop Follow-up',
+                desc: 'When a proposal goes cold after 3 days, the system sends a personalized voicemail to the client\'s phone automatically. 90%+ voicemail open rate.',
+                status: 'Available on Request',
+                statusColor: 'text-amber-400 bg-amber-400/10 border-amber-400/20',
+              },
+              {
+                emoji: '🌐',
+                title: 'Fully Custom Domain Client Portal',
+                desc: 'proposals.yourcompany.com — your own subdomain, your branding, your CNAME. No peakestimator.com in the URL your clients ever see.',
+                status: 'Available on Request',
+                statusColor: 'text-amber-400 bg-amber-400/10 border-amber-400/20',
+              },
+              {
+                emoji: '🤝',
+                title: 'CRM Auto-Sync (HubSpot / Salesforce)',
+                desc: 'Every approved proposal automatically creates or updates a deal in your CRM. Your pipeline stays current without manual data entry.',
+                status: 'In Development',
+                statusColor: 'text-blue-400 bg-blue-400/10 border-blue-400/20',
+              },
+              {
+                emoji: '📦',
+                title: 'QuickBooks / Xero Invoice Sync',
+                desc: 'When a proposal is approved, a draft invoice is automatically created in your accounting software — pre-filled with line items and totals.',
+                status: 'In Development',
+                statusColor: 'text-blue-400 bg-blue-400/10 border-blue-400/20',
+              },
+            ].map(({ emoji, title, desc, status, statusColor }) => (
+              <div key={title} className="bg-white/[0.02] border border-white/8 rounded-3xl p-6 flex gap-4 hover:border-white/15 hover:bg-white/[0.04] transition-all">
+                <div className="text-2xl shrink-0 mt-0.5">{emoji}</div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap mb-2">
+                    <h3 className="text-white font-bold text-sm font-sora">{title}</h3>
+                    <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded border ${statusColor}`}>{status}</span>
+                  </div>
+                  <p className="text-white/45 text-xs leading-relaxed">{desc}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="bg-gradient-to-br from-copper/10 to-amber-500/5 border border-copper/20 rounded-3xl p-8 text-center">
+            <div className="text-2xl mb-3">🙋</div>
+            <h3 className="text-white font-bold font-sora text-lg mb-2">Want a Feature That&apos;s Not Listed?</h3>
+            <p className="text-white/50 text-sm mb-6 max-w-md mx-auto">Request an integration, a workflow, or a new capability directly from inside your account. We build based on what contractors actually need — not what looks good in a pitch deck.</p>
+            <button
+              onClick={() => setShowDemoModal(true)}
+              className="inline-flex items-center gap-2 bg-copper hover:bg-amber-600 text-white font-bold px-6 py-3 rounded-xl transition-all shadow-lg hover:-translate-y-0.5"
+            >
+              <Zap className="w-4 h-4" /> Request a Feature
+            </button>
+          </div>
+        </div>
+      </section>
+
+            {/* ── FINAL CTA ──────────────────────────────────────────── */}
       <section className="py-24 sm:py-32 relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-[#0D1526] via-[#111827] to-[#0D1526]" />
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[400px] bg-copper/8 rounded-full blur-[120px] pointer-events-none" />

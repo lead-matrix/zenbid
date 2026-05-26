@@ -372,50 +372,6 @@ export default function ClientPortal() {
     );
   }
 
-  // ── Browser-side expiry guard ────────────────────────────────────────────
-  const isExpired =
-    !!(project.valid_until && new Date(project.valid_until) < new Date()) ||
-    !!project.is_expired;
-
-  if (isExpired && !project.client_approved_at) {
-    return (
-      <div className="min-h-screen bg-slate-100 dark:bg-navy-950 flex items-center justify-center px-4">
-        <div className="max-w-md w-full text-center bg-white dark:bg-navy-900 rounded-3xl border border-slate-200 dark:border-navy-800 shadow-premium p-10">
-          <div className="text-6xl mb-4">⏰</div>
-          <h2 className="text-2xl font-bold font-sora text-slate-900 dark:text-white mb-2">
-            This proposal has expired
-          </h2>
-          <p className="text-slate-500 dark:text-slate-400 text-sm mb-6">
-            The pricing on this estimate is no longer valid.
-            {project.valid_until && (
-              <> It expired on{' '}
-                <span className="font-semibold text-slate-700 dark:text-slate-300">
-                  {new Date(project.valid_until).toLocaleDateString('en-US', {
-                    month: 'long', day: 'numeric', year: 'numeric',
-                  })}
-                </span>.
-              </>
-            )}
-          </p>
-          <p className="text-slate-500 dark:text-slate-400 text-sm">
-            Please contact{' '}
-            <span className="font-semibold text-copper">
-              {project.company_name || 'the contractor'}
-            </span>{' '}
-            {project.company_email && (
-              <>at{' '}
-                <a href={`mailto:${project.company_email}`} className="underline text-copper hover:opacity-80">
-                  {project.company_email}
-                </a>{' '}
-              </>
-            )}
-            to request a refreshed quote.
-          </p>
-        </div>
-      </div>
-    );
-  }
-
   const activeTier = project?.selected_option_tier || 'better';
 
   const visibleItems = project?.is_multi_option

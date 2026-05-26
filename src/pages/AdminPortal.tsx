@@ -1,15 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import BroadcastPanel from '../components/admin/BroadcastPanel';
 import { supabase } from '../api/supabase';
 import { useEventBus } from '../hooks/useEventBus';
-import {
-  ShieldAlert, UserCheck, Trash2, Mail, Plus, Users, Search,
-  Building2, Zap, Heart, AlertCircle, Clock, Check, FileText,
-  Star, MessageSquare, Send, Eye, RefreshCw, Shield, HelpCircle,
-  Laptop, Smartphone, ArrowRight, UserPlus, Flag, Bot, Bell,
-  LayoutTemplate, ScrollText, CreditCard, ToggleLeft, ToggleRight,
-  Pencil, Save, X, ChevronRight, Activity, Database, TrendingUp,
-  DollarSign, Percent, Timer, Package, CircleCheck, CircleX, Globe
-} from 'lucide-react';
+import {Activity, AlertCircle, ArrowRight, Bell, Bot, Building2, Check, CheckCircle2, ChevronRight, CircleCheck, CircleX, ClipboardList, Clock, CreditCard, Database, DollarSign, Eye, FileText, Flag, Globe, Heart, HelpCircle, Laptop, LayoutTemplate, Mail, MessageSquare, Package, Pencil, Percent, Plus, RefreshCw, Save, ScrollText, Search, Send, Shield, ShieldAlert, Smartphone, Star, Timer, ToggleLeft, ToggleRight, Trash2, TrendingUp, UserCheck, UserPlus, Users, X, Zap} from 'lucide-react';
 import { toast } from 'sonner';
 import { campaignManager, DEFAULT_FOLLOW_UP_RULES, type FollowUpRule } from '../lib/followUpCampaigns';
 import type {
@@ -26,7 +19,7 @@ interface WaitlistItem {
   created_at: string;
 }
 
-type AdminTab = 'members' | 'crm' | 'integrations' | 'support' | 'email_sandbox' | 'waitlist' | 'feature_flags' | 'ai_settings' | 'automation' | 'templates' | 'audit_logs' | 'system_logs';
+type AdminTab = 'members' | 'crm' | 'integrations' | 'support' | 'email_logs' | 'waitlist' | 'onboarding' | 'feature_flags' | 'ai_settings' | 'automation' | 'templates' | 'audit_logs' | 'revenue' | 'broadcast' | 'churn' | 'billing' | 'stripe' | 'pricebook_admin';
 
 export default function AdminPortal() {
   const { triggerEvent } = useEventBus();
@@ -37,6 +30,10 @@ export default function AdminPortal() {
   // Data lists
   const [members, setMembers] = useState<Profile[]>([]);
   const [waitlist, setWaitlist] = useState<WaitlistItem[]>([]);
+  const [onboardingData, setOnboardingData] = useState<any[]>([]);
+  const [onboardingDetail, setOnboardingDetail] = useState<any[] | null>(null);
+  const [onboardingDetailUser, setOnboardingDetailUser] = useState<any>(null);
+  const [onboardingDetailLoading, setOnboardingDetailLoading] = useState(false);
   const [integrationRequests, setIntegrationRequests] = useState<IntegrationRequest[]>([]);
   const [supportTickets, setSupportTickets] = useState<SupportTicket[]>([]);
   const [emailLogs, setEmailLogs] = useState<EmailLog[]>([]);
@@ -64,6 +61,8 @@ export default function AdminPortal() {
   const [inviteName, setInviteName] = useState('');
   const [inviteCompany, setInviteCompany] = useState('');
   const [inviting, setInviting] = useState(false);
+  const [generatedInviteLink, setGeneratedInviteLink] = useState<string | null>(null);
+  const [pendingWaitlistId, setPendingWaitlistId] = useState<string | null>(null);
 
   // Email Sandbox States
   const [selectedEmailType, setSelectedEmailType] = useState<string>('welcome');
@@ -98,6 +97,42 @@ export default function AdminPortal() {
     enterpriseSetup: '499',
     annualLicense: '8000'
   });
+
+  // Billing / Wire Management
+  const [wireForm, setWireForm] = useState({
+    wire_bank_name: '',
+    wire_account_name: '',
+    wire_account_number: '',
+    wire_routing_number: '',
+    wire_swift: '',
+    wire_contact_email: '',
+    wire_instructions: '',
+  });
+  const [wireLoading, setWireLoading] = useState(false);
+  const [savingWire, setSavingWire] = useState(false);
+  const [editingWire, setEditingWire] = useState(false);
+  const [pendingWires, setPendingWires] = useState<any[]>([]);
+  const [approvingWire, setApprovingWire] = useState<string | null>(null);
+  // NEW: Member management expanded state
+  const [editingMember, setEditingMember] = useState<Profile | null>(null);
+  const [memberRoleUpdate, setMemberRoleUpdate] = useState<string>('estimator');
+  const [memberPlanUpdate, setMemberPlanUpdate] = useState<string>('pro');
+  const [savingMember, setSavingMember] = useState(false);
+  
+  // NEW: Subscriptions / Stripe admin
+  const [allSubscriptions, setAllSubscriptions] = useState<any[]>([]);
+  const [subscriptionsLoading, setSubscriptionsLoading] = useState(false);
+  
+  // NEW: Churn detection (real)
+  const [churnStats, setChurnStats] = useState<any[]>([]);
+  
+  // NEW: Global price book admin
+  const [globalPriceBook, setGlobalPriceBook] = useState<any[]>([]);
+  const [priceBookLoading, setPriceBookLoading] = useState(false);
+  
+  // NEW: Password reset state
+  const [sendingPasswordReset, setSendingPasswordReset] = useState<string | null>(null);
+
   // Templates
   const [templates, setTemplates] = useState<Template[]>([]);
   const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null);
@@ -150,6 +185,13 @@ export default function AdminPortal() {
       // 1. Fetch Waitlist
       const { data: waitData } = await supabase.from('waitlist').select('*').order('created_at', { ascending: false });
       if (waitData) setWaitlist(waitData);
+
+      // 1b. Fetch Onboarding summary
+      const { data: onbData } = await supabase
+        .from('profiles')
+        .select('id, full_name, email, company_name, trade, plan_tier, onboarding_completed, concierge_requested, concierge_details, created_at')
+        .order('created_at', { ascending: false });
+      if (onbData) setOnboardingData(onbData);
 
       // 2. Fetch Members (Profiles)
       const { data: memData } = await supabase.from('profiles').select('*').order('created_at', { ascending: false });
@@ -210,6 +252,63 @@ export default function AdminPortal() {
       setAiSettingsLoading(false);
     }
   }, []);
+
+  const fetchWireData = useCallback(async () => {
+    setWireLoading(true);
+    try {
+      const [{ data: ss }, { data: pw }] = await Promise.all([
+        supabase.from('system_settings').select('wire_bank_name,wire_account_name,wire_account_number,wire_routing_number,wire_swift,wire_contact_email,wire_instructions').single(),
+        supabase.from('subscriptions').select('*').eq('status', 'pending_wire').order('wire_submitted_at', { ascending: false }),
+      ]);
+      if (ss) setWireForm({
+        wire_bank_name: ss.wire_bank_name || '',
+        wire_account_name: ss.wire_account_name || '',
+        wire_account_number: ss.wire_account_number || '',
+        wire_routing_number: ss.wire_routing_number || '',
+        wire_swift: ss.wire_swift || '',
+        wire_contact_email: ss.wire_contact_email || '',
+        wire_instructions: ss.wire_instructions || '',
+      });
+      if (pw) setPendingWires(pw);
+    } catch (e) { console.warn('fetchWireData error', e); }
+    setWireLoading(false);
+  }, []);
+
+  const handleSaveWire = async () => {
+    setSavingWire(true);
+    try {
+      const { error } = await supabase.from('system_settings')
+        .update({ ...wireForm, updated_at: new Date().toISOString() })
+        .neq('id', '00000000-0000-0000-0000-000000000000');
+      if (error) throw error;
+      setEditingWire(false);
+      toast.success('Wire transfer details updated successfully!');
+    } catch (err: any) {
+      toast.error('Save failed: ' + err.message);
+    }
+    setSavingWire(false);
+  };
+
+  const handleApproveWirePayment = async (sub: any) => {
+    setApprovingWire(sub.id);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      if (!token) throw new Error('No session');
+      const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-wire-approve`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ organization_id: sub.organization_id, plan: sub.plan || 'pro', notify_email: sub.notify_email }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Approval failed');
+      toast.success(`Wire payment approved! Subscription upgraded to ${sub.plan || 'pro'}.`);
+      fetchWireData();
+    } catch (err: any) {
+      toast.error(err.message);
+    }
+    setApprovingWire(null);
+  };
 
   const fetchSystemSettings = useCallback(async () => {
     try {
@@ -518,11 +617,18 @@ export default function AdminPortal() {
         sendNotification: true
       });
 
-      toast.success(`Invitation sent to ${inviteEmail}!`);
-      setShowInviteModal(false);
-      setInviteEmail('');
-      setInviteName('');
-      setInviteCompany('');
+      // Build the invite link from the returned user's action_link if present
+      const inviteLink = data?.action_link || 
+        `${import.meta.env.VITE_SUPABASE_URL?.replace('supabase.co', 'supabase.co')}/auth/v1/verify?token=...`;
+      setGeneratedInviteLink(data?.action_link || null);
+      toast.success(`Invitation email sent to ${inviteEmail}!`);
+
+      // If this invite came from the waitlist queue, auto-remove the entry
+      if (pendingWaitlistId) {
+        await supabase.from('waitlist').delete().eq('id', pendingWaitlistId);
+        setPendingWaitlistId(null);
+      }
+
       fetchData();
     } catch (err) {
       toast.error((err as Error).message);
@@ -561,6 +667,7 @@ export default function AdminPortal() {
     setInviteEmail(item.email);
     setInviteName(item.name || '');
     setInviteCompany(item.company || '');
+    setPendingWaitlistId(item.id);
     setShowInviteModal(true);
   };
 
@@ -941,6 +1048,152 @@ Please assign an administrator immediately to prevent collision and address.`,
     }
   ];
 
+
+  // ── NEW: Update member role/plan/suspend ────────────────────────
+  const handleUpdateMember = async () => {
+    if (!editingMember) return;
+    setSavingMember(true);
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          role: memberRoleUpdate,
+          billing_tier: memberPlanUpdate,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', editingMember.id);
+      if (error) throw error;
+      toast.success('Member updated successfully');
+      setEditingMember(null);
+      fetchData();
+    } catch (err: any) {
+      toast.error('Update failed: ' + err.message);
+    }
+    setSavingMember(false);
+  };
+
+  const handleSuspendMember = async (member: Profile) => {
+    const action = member.is_suspended ? 'reactivate' : 'suspend';
+    if (!confirm(`${action === 'suspend' ? 'Suspend' : 'Reactivate'} ${member.email}?`)) return;
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ is_suspended: !member.is_suspended, updated_at: new Date().toISOString() })
+        .eq('id', member.id);
+      if (error) throw error;
+      toast.success(`Member ${action === 'suspend' ? 'suspended' : 'reactivated'}`);
+      fetchData();
+    } catch (err: any) {
+      toast.error('Action failed: ' + err.message);
+    }
+  };
+
+  const handlePasswordReset = async (email: string, userId: string) => {
+    setSendingPasswordReset(userId);
+    try {
+      const { error } = await supabase.auth.admin.generateLink({
+        type: 'recovery',
+        email
+      });
+      if (error) {
+        // Fallback: use resetPasswordForEmail
+        const { error: e2 } = await supabase.auth.resetPasswordForEmail(email, {
+          redirectTo: `${window.location.origin}/forgot-password`
+        });
+        if (e2) throw e2;
+      }
+      // Log the action
+      await supabase.from('admin_actions_log').insert({
+        action_type: 'password_reset_sent',
+        target_id: userId,
+        metadata: { email }
+      }).select();
+      toast.success(`Password reset email sent to ${email}`);
+    } catch (err: any) {
+      toast.error('Failed: ' + err.message);
+    }
+    setSendingPasswordReset(null);
+  };
+
+  const fetchAllSubscriptions = async () => {
+    setSubscriptionsLoading(true);
+    try {
+      const { data } = await supabase
+        .from('subscriptions')
+        .select('*')
+        .order('created_at', { ascending: false });
+      if (data) setAllSubscriptions(data);
+    } catch (e) { console.error(e); }
+    setSubscriptionsLoading(false);
+  };
+
+  const handleManualActivateSub = async (subId: string) => {
+    if (!confirm('Manually mark this subscription as active?')) return;
+    try {
+      const { error } = await supabase
+        .from('subscriptions')
+        .update({ status: 'active', updated_at: new Date().toISOString() })
+        .eq('id', subId);
+      if (error) throw error;
+      toast.success('Subscription manually activated');
+      fetchAllSubscriptions();
+    } catch (err: any) {
+      toast.error(err.message);
+    }
+  };
+
+  const handleCancelSub = async (subId: string) => {
+    if (!confirm('Cancel this subscription? This cannot be undone.')) return;
+    try {
+      const { error } = await supabase
+        .from('subscriptions')
+        .update({ status: 'canceled', canceled_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+        .eq('id', subId);
+      if (error) throw error;
+      toast.success('Subscription cancelled');
+      fetchAllSubscriptions();
+    } catch (err: any) {
+      toast.error(err.message);
+    }
+  };
+
+  const computeChurnStats = (memberList: Profile[]) => {
+    const now = new Date();
+    return memberList
+      .filter(m => !m.is_admin)
+      .map(m => {
+        const lastLogin = m.last_login_at ? new Date(m.last_login_at) : null;
+        const created = m.created_at ? new Date(m.created_at) : null;
+        const daysSinceLogin = lastLogin 
+          ? Math.floor((now.getTime() - lastLogin.getTime()) / (1000 * 60 * 60 * 24))
+          : null;
+        const daysSinceSignup = created
+          ? Math.floor((now.getTime() - created.getTime()) / (1000 * 60 * 60 * 24))
+          : 0;
+        const riskScore = daysSinceLogin === null 
+          ? 90  // Never logged in since we added tracking = unknown risk
+          : daysSinceLogin > 30 ? 85
+          : daysSinceLogin > 14 ? 60
+          : daysSinceLogin > 7 ? 30
+          : 10;
+        const riskLevel = riskScore >= 80 ? 'critical' : riskScore >= 55 ? 'high' : riskScore >= 25 ? 'medium' : 'low';
+        return { ...m, daysSinceLogin, daysSinceSignup, riskScore, riskLevel };
+      })
+      .sort((a, b) => b.riskScore - a.riskScore);
+  };
+
+  const fetchGlobalPriceBook = async () => {
+    setPriceBookLoading(true);
+    try {
+      const { data } = await supabase
+        .from('price_book_items')
+        .select('*')
+        .order('trade', { ascending: true });
+      if (data) setGlobalPriceBook(data);
+    } catch (e) { console.error(e); }
+    setPriceBookLoading(false);
+  };
+
   // Filtering lists based on search string
   const filteredMembers = members.filter(m =>
     m.email.toLowerCase().includes(search.toLowerCase()) ||
@@ -970,7 +1223,121 @@ Please assign an administrator immediately to prevent collision and address.`,
 
   return (
     <div className="p-4 sm:p-8 max-w-7xl mx-auto font-inter select-none animate-fade-in relative min-h-screen pb-16">
-      
+
+      {/* ── Invite Modal ─────────────────────────────────────────── */}
+      {showInviteModal && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-white dark:bg-navy rounded-2xl shadow-2xl border border-app-border dark:border-navy-700 w-full max-w-md p-6 space-y-5">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-sora font-extrabold text-slate-900 dark:text-white text-base flex items-center gap-2">
+                  <UserPlus className="w-4 h-4 text-copper" />
+                  Send Direct Invitation
+                </h3>
+                <p className="text-[11px] text-slate-400 mt-0.5">An email with a secure sign-in link will be sent immediately.</p>
+              </div>
+              <button
+                onClick={() => { setShowInviteModal(false); setGeneratedInviteLink(null); setInviteEmail(''); setInviteName(''); setInviteCompany(''); setPendingWaitlistId(null); }}
+                className="p-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-navy-800 transition-colors"
+              >
+                <X className="w-4 h-4 text-slate-400" />
+              </button>
+            </div>
+
+            {/* Success state — show copyable link */}
+            {generatedInviteLink ? (
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 p-3 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-900/30 rounded-xl">
+                  <CircleCheck className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+                  <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-400">Invitation email sent to {inviteEmail}</span>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">Direct Invite Link (copy to share manually)</label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      readOnly
+                      value={generatedInviteLink}
+                      className="flex-1 px-3 py-2 rounded-xl border border-slate-200 dark:border-navy-700 bg-slate-50 dark:bg-navy-900 text-[10px] text-slate-600 dark:text-slate-300 font-mono focus:outline-none"
+                    />
+                    <button
+                      onClick={() => { navigator.clipboard.writeText(generatedInviteLink); toast.success('Link copied!'); }}
+                      className="flex-shrink-0 px-3 py-2 rounded-xl bg-copper text-white text-xs font-bold hover:opacity-90 transition-all"
+                    >
+                      Copy
+                    </button>
+                  </div>
+                </div>
+                <button
+                  onClick={() => { setShowInviteModal(false); setGeneratedInviteLink(null); setInviteEmail(''); setInviteName(''); setInviteCompany(''); setPendingWaitlistId(null); }}
+                  className="w-full px-4 py-2.5 rounded-xl bg-slate-100 dark:bg-navy-800 text-sm font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-navy-700 transition-all"
+                >
+                  Done
+                </button>
+              </div>
+            ) : (
+              <form onSubmit={handleInvite} className="space-y-4">
+                <div>
+                  <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">
+                    Email Address <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="email"
+                    required
+                    value={inviteEmail}
+                    onChange={e => setInviteEmail(e.target.value)}
+                    placeholder="contractor@example.com"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-navy-700 bg-slate-50 dark:bg-navy-900 text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-copper/30 focus:border-copper transition-all"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">Full Name</label>
+                  <input
+                    type="text"
+                    value={inviteName}
+                    onChange={e => setInviteName(e.target.value)}
+                    placeholder="John Smith"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-navy-700 bg-slate-50 dark:bg-navy-900 text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-copper/30 focus:border-copper transition-all"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">Company Name</label>
+                  <input
+                    type="text"
+                    value={inviteCompany}
+                    onChange={e => setInviteCompany(e.target.value)}
+                    placeholder="Smith Contracting LLC"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-navy-700 bg-slate-50 dark:bg-navy-900 text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-copper/30 focus:border-copper transition-all"
+                  />
+                </div>
+                <div className="p-3 bg-blue-50 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-900/30 rounded-xl text-[11px] text-blue-600 dark:text-blue-400">
+                  <strong>What happens:</strong> Supabase sends a magic-link email. The recipient clicks it, sets a password, and lands on the dashboard. A copyable invite link will appear here for you to share manually if needed.
+                </div>
+                <div className="flex gap-2 pt-1">
+                  <button
+                    type="submit"
+                    disabled={inviting || !inviteEmail.trim()}
+                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-copper text-white text-sm font-bold hover:opacity-90 active:opacity-80 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {inviting ? (
+                      <><RefreshCw className="w-4 h-4 animate-spin" /> Sending…</>
+                    ) : (
+                      <><Send className="w-4 h-4" /> Send Invitation</>
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setShowInviteModal(false); setInviteEmail(''); setInviteName(''); setInviteCompany(''); setPendingWaitlistId(null); }}
+                    className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-navy-700 text-sm font-bold text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-navy-800 transition-all"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Superadmin Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
         <div>
@@ -1000,10 +1367,11 @@ Please assign an administrator immediately to prevent collision and address.`,
           {[
             { id: 'members', label: 'Seat Manager', icon: Users },
             { id: 'crm', label: 'Customer CRM', icon: Star },
-            { id: 'integrations', label: 'Integration Desk', icon: Zap },
             { id: 'support', label: 'Support Desk', icon: HelpCircle },
-            { id: 'email_sandbox', label: 'Email Sandbox', icon: Mail },
-            { id: 'waitlist', label: 'Waitlist Queue', icon: UserCheck }
+            { id: 'email_logs', label: 'Email Delivery', icon: Mail },
+            { id: 'waitlist', label: 'Waitlist Queue', icon: UserCheck },
+            { id: 'onboarding', label: 'Onboarding Tracker', icon: ClipboardList },
+            { id: 'broadcast', label: 'Broadcast', icon: Send },
           ].map(tab => {
             const Icon = tab.icon;
             return (
@@ -1026,12 +1394,17 @@ Please assign an administrator immediately to prevent collision and address.`,
         <div className="flex items-center gap-1 flex-wrap border-t border-slate-100 dark:border-navy-900 pt-2">
           <span className="text-[9px] font-bold text-copper/80 uppercase tracking-widest mr-2">Enterprise</span>
           {[
+            { id: 'revenue', label: 'Revenue', icon: TrendingUp },
+            { id: 'billing', label: 'Wire & Billing', icon: CreditCard },
             { id: 'feature_flags', label: 'Feature Flags', icon: Flag },
             { id: 'ai_settings', label: 'AI Controls', icon: Bot },
             { id: 'automation', label: 'Automation', icon: Bell },
             { id: 'templates', label: 'Templates', icon: LayoutTemplate },
             { id: 'audit_logs', label: 'Audit Logs', icon: ScrollText },
-            { id: 'system_logs', label: 'System & Billing', icon: CreditCard }
+            { id: 'integrations', label: 'Integration Desk', icon: Zap },
+            { id: 'churn', label: 'Churn Risk', icon: Activity },
+            { id: 'stripe', label: 'Subscriptions', icon: CreditCard },
+            { id: 'pricebook_admin', label: 'Price Book Admin', icon: Package },
           ].map(tab => {
             const Icon = tab.icon;
             return (
@@ -1044,9 +1417,9 @@ Please assign an administrator immediately to prevent collision and address.`,
                   if (tab.id === 'feature_flags') fetchFeatureFlags();
                   if (tab.id === 'ai_settings') fetchAiSettings();
                   if (tab.id === 'automation') fetchSystemSettings();
+                  if (tab.id === 'billing') fetchWireData();
                   if (tab.id === 'templates') fetchTemplates();
                   if (tab.id === 'audit_logs') fetchAuditLogs(1);
-                  if (tab.id === 'system_logs') fetchSystemLogs();
                 }}
                 className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl font-bold text-[11px] transition-all whitespace-nowrap ${
                   activeTab === tab.id
@@ -1063,7 +1436,7 @@ Please assign an administrator immediately to prevent collision and address.`,
       </div>
 
       {/* Global Search and Filter */}
-      {activeTab !== 'email_sandbox' && (
+      {activeTab !== 'email_logs' && (
         <div className="relative mb-6 max-w-md">
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 dark:text-slate-500" />
           <input
@@ -1082,58 +1455,164 @@ Please assign an administrator immediately to prevent collision and address.`,
           <div className="w-8 h-8 border-4 border-copper border-t-transparent rounded-full animate-spin" />
         </div>
       ) : activeTab === 'members' ? (
-        /* TAB 1: MEMBERS */
-        <div className="bg-white dark:bg-navy border border-app-border dark:border-navy-800 shadow-card rounded-2xl overflow-hidden">
-          <div className="overflow-x-auto scrollbar-thin">
-            <table className="w-full text-left border-collapse min-w-[850px]">
-              <thead>
-                <tr className="bg-slate-50 dark:bg-navy-950 border-b border-app-border dark:border-navy-800 text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                  <th className="py-4 px-6">Member / Company</th>
-                  <th className="py-4 px-6">Email Address</th>
-                  <th className="py-4 px-6">Access Role</th>
-                  <th className="py-4 px-6">Seat Registration</th>
-                  <th className="py-4 px-6 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-app-border dark:divide-navy-800 text-xs text-slate-900 dark:text-white">
-                {filteredMembers.length === 0 ? (
-                  <tr>
-                    <td colSpan={5} className="py-16 text-center text-slate-400">No active contractor seats.</td>
+        /* TAB 1: MEMBERS — Full Admin Control */
+        <div className="space-y-4">
+          {/* Edit Member Modal */}
+          {editingMember && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+              <div className="bg-white dark:bg-navy rounded-2xl shadow-2xl border border-app-border dark:border-navy-700 w-full max-w-md p-6 space-y-5">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-sora font-extrabold text-sm text-slate-900 dark:text-white">Edit Member</h3>
+                  <button onClick={() => setEditingMember(null)} className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-navy-800 transition-colors">
+                    <X className="w-4 h-4 text-slate-400" />
+                  </button>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">{editingMember.email} — {editingMember.company_name}</p>
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">Role</label>
+                      <select
+                        value={memberRoleUpdate}
+                        onChange={e => setMemberRoleUpdate(e.target.value)}
+                        className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-navy-700 bg-slate-50 dark:bg-navy-900 text-xs text-slate-900 dark:text-white focus:outline-none"
+                      >
+                        <option value="estimator">Estimator</option>
+                        <option value="sales_manager">Sales Manager</option>
+                        <option value="technician">Technician</option>
+                        <option value="viewer">Viewer</option>
+                        <option value="admin">Admin</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">Plan Tier</label>
+                      <select
+                        value={memberPlanUpdate}
+                        onChange={e => setMemberPlanUpdate(e.target.value)}
+                        className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-navy-700 bg-slate-50 dark:bg-navy-900 text-xs text-slate-900 dark:text-white focus:outline-none"
+                      >
+                        <option value="free">Free</option>
+                        <option value="pro">Pro ($99/mo)</option>
+                        <option value="enterprise">Enterprise ($199/mo)</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex gap-2 pt-2">
+                  <button
+                    onClick={handleUpdateMember}
+                    disabled={savingMember}
+                    className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-copper text-white text-xs font-bold hover:opacity-90 transition-all disabled:opacity-50"
+                  >
+                    {savingMember ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                    Save Changes
+                  </button>
+                  <button onClick={() => setEditingMember(null)} className="px-4 py-2 rounded-xl border border-slate-200 dark:border-navy-700 text-xs font-bold text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-navy-800 transition-all">
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="bg-white dark:bg-navy border border-app-border dark:border-navy-800 shadow-card rounded-2xl overflow-hidden">
+            <div className="overflow-x-auto scrollbar-thin">
+              <table className="w-full text-left border-collapse min-w-[950px]">
+                <thead>
+                  <tr className="bg-slate-50 dark:bg-navy-950 border-b border-app-border dark:border-navy-800 text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                    <th className="py-4 px-5">Member / Company</th>
+                    <th className="py-4 px-5">Email</th>
+                    <th className="py-4 px-5">Role</th>
+                    <th className="py-4 px-5">Plan</th>
+                    <th className="py-4 px-5">Last Login</th>
+                    <th className="py-4 px-5">Status</th>
+                    <th className="py-4 px-5 text-right">Actions</th>
                   </tr>
-                ) : (
-                  filteredMembers.map(m => (
-                    <tr key={m.id} className="hover:bg-slate-50/50 dark:hover:bg-navy-950/40">
-                      <td className="py-4 px-6">
-                        <div className="font-bold">{m.full_name || '—'}</div>
-                        <div className="text-[10px] text-slate-400 flex items-center gap-1 mt-0.5">
-                          <Building2 className="w-3.5 h-3.5" /> {m.company_name || 'No Branding Profile'}
-                        </div>
-                      </td>
-                      <td className="py-4 px-6 font-bold">{m.email}</td>
-                      <td className="py-4 px-6">
-                        {m.is_admin ? (
-                          <span className="bg-rose-50 text-rose-600 dark:bg-rose-950/20 dark:text-rose-400 px-2 py-0.5 border border-rose-100 dark:border-rose-900/30 rounded text-[9px] font-bold uppercase">Superadmin</span>
-                        ) : (
-                          <span className="bg-slate-100 text-slate-500 dark:bg-navy-950 dark:text-slate-400 px-2 py-0.5 border border-slate-200 dark:border-navy-850 rounded text-[9px] font-bold uppercase">Contractor Seat</span>
-                        )}
-                      </td>
-                      <td className="py-4 px-6 text-slate-400 font-semibold">{new Date(m.created_at || '').toLocaleDateString()}</td>
-                      <td className="py-4 px-6 text-right">
-                        {!m.is_admin && (
-                          <button
-                            onClick={() => handleRevokeAccess(m.id, m.email)}
-                            className="p-1.5 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-slate-400 hover:text-rose-500 rounded-lg transition-all"
-                            title="Revoke access seat"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        )}
-                      </td>
+                </thead>
+                <tbody className="divide-y divide-app-border dark:divide-navy-800 text-xs text-slate-900 dark:text-white">
+                  {filteredMembers.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="py-16 text-center text-slate-400">No active contractor seats.</td>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+                  ) : (
+                    filteredMembers.map(m => (
+                      <tr key={m.id} className={`hover:bg-slate-50/50 dark:hover:bg-navy-950/40 ${m.is_suspended ? 'opacity-50' : ''}`}>
+                        <td className="py-3.5 px-5">
+                          <div className="font-bold">{m.full_name || '—'}</div>
+                          <div className="text-[10px] text-slate-400 flex items-center gap-1 mt-0.5">
+                            <Building2 className="w-3 h-3" /> {m.company_name || 'No Company'}
+                          </div>
+                        </td>
+                        <td className="py-3.5 px-5 text-slate-600 dark:text-slate-300">{m.email}</td>
+                        <td className="py-3.5 px-5">
+                          {m.is_admin ? (
+                            <span className="bg-rose-50 text-rose-600 dark:bg-rose-950/20 dark:text-rose-400 px-2 py-0.5 border border-rose-100 dark:border-rose-900/30 rounded text-[9px] font-bold uppercase">Superadmin</span>
+                          ) : (
+                            <span className="bg-slate-100 text-slate-600 dark:bg-navy-900 dark:text-slate-300 px-2 py-0.5 rounded text-[9px] font-bold uppercase">{m.role || 'estimator'}</span>
+                          )}
+                        </td>
+                        <td className="py-3.5 px-5">
+                          <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase ${
+                            m.billing_tier === 'enterprise' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' :
+                            m.billing_tier === 'pro' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' :
+                            'bg-slate-100 text-slate-500 dark:bg-navy-900 dark:text-slate-400'
+                          }`}>{m.billing_tier || 'pro'}</span>
+                        </td>
+                        <td className="py-3.5 px-5 text-slate-400">
+                          {m.last_login_at 
+                            ? new Date(m.last_login_at).toLocaleDateString() 
+                            : <span className="text-amber-500 text-[10px]">Never tracked</span>}
+                        </td>
+                        <td className="py-3.5 px-5">
+                          {m.is_suspended ? (
+                            <span className="bg-red-100 text-red-600 dark:bg-red-950/20 dark:text-red-400 px-2 py-0.5 rounded text-[9px] font-bold uppercase">Suspended</span>
+                          ) : (
+                            <span className="bg-emerald-100 text-emerald-700 dark:bg-emerald-950/20 dark:text-emerald-400 px-2 py-0.5 rounded text-[9px] font-bold uppercase">Active</span>
+                          )}
+                        </td>
+                        <td className="py-3.5 px-5 text-right">
+                          <div className="flex items-center gap-1 justify-end">
+                            {!m.is_admin && (
+                              <>
+                                <button
+                                  onClick={() => { setEditingMember(m); setMemberRoleUpdate(m.role || 'estimator'); setMemberPlanUpdate(m.billing_tier || 'pro'); }}
+                                  className="p-1.5 hover:bg-blue-50 dark:hover:bg-blue-950/30 text-slate-400 hover:text-blue-500 rounded-lg transition-all"
+                                  title="Edit role & plan"
+                                >
+                                  <Pencil className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  onClick={() => handlePasswordReset(m.email, m.id)}
+                                  disabled={sendingPasswordReset === m.id}
+                                  className="p-1.5 hover:bg-amber-50 dark:hover:bg-amber-950/30 text-slate-400 hover:text-amber-500 rounded-lg transition-all"
+                                  title="Send password reset"
+                                >
+                                  {sendingPasswordReset === m.id ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Mail className="w-3.5 h-3.5" />}
+                                </button>
+                                <button
+                                  onClick={() => handleSuspendMember(m)}
+                                  className={`p-1.5 rounded-lg transition-all ${m.is_suspended ? 'hover:bg-emerald-50 dark:hover:bg-emerald-950/30 text-slate-400 hover:text-emerald-500' : 'hover:bg-orange-50 dark:hover:bg-orange-950/30 text-slate-400 hover:text-orange-500'}`}
+                                  title={m.is_suspended ? 'Reactivate member' : 'Suspend member'}
+                                >
+                                  {m.is_suspended ? <CircleCheck className="w-3.5 h-3.5" /> : <CircleX className="w-3.5 h-3.5" />}
+                                </button>
+                                <button
+                                  onClick={() => handleRevokeAccess(m.id, m.email)}
+                                  className="p-1.5 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-slate-400 hover:text-rose-500 rounded-lg transition-all"
+                                  title="Permanently delete member"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       ) : activeTab === 'crm' ? (
@@ -1556,7 +2035,7 @@ Please assign an administrator immediately to prevent collision and address.`,
             )}
           </div>
         </div>
-      ) : activeTab === 'email_sandbox' ? (
+      ) : activeTab === 'email_logs' ? (
         /* TAB 5: RESPONSIVE EMAIL SANDBOX PREVIEWER */
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start font-inter text-xs">
           
@@ -1758,6 +2237,155 @@ Please assign an administrator immediately to prevent collision and address.`,
               </tbody>
             </table>
           </div>
+        </div>
+
+      ) : activeTab === 'onboarding' ? (
+        /* ═══════════════════════════════════════════════════
+           TAB: ONBOARDING TRACKER
+        ═══════════════════════════════════════════════════ */
+        <div className="space-y-4">
+          {onboardingDetailUser ? (
+            /* ── Detail view: single user's responses ── */
+            <div className="space-y-4">
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => { setOnboardingDetailUser(null); setOnboardingDetail(null); }}
+                  className="text-xs text-copper hover:underline flex items-center gap-1"
+                >
+                  ← Back to all users
+                </button>
+                <span className="text-slate-400 text-xs">|</span>
+                <span className="text-xs font-bold text-white dark:text-white text-slate-900">{onboardingDetailUser.full_name || onboardingDetailUser.email}</span>
+                {onboardingDetailUser.company_name && <span className="text-xs text-slate-400">— {onboardingDetailUser.company_name}</span>}
+              </div>
+
+              {onboardingDetailLoading ? (
+                <div className="text-center py-16 text-slate-400 text-xs">Loading responses…</div>
+              ) : onboardingDetail && onboardingDetail.length > 0 ? (
+                <div className="space-y-3">
+                  {onboardingDetail.map((r: any) => (
+                    <div key={r.id} className="bg-white dark:bg-navy border border-app-border dark:border-navy-800 rounded-2xl p-4 flex items-start gap-4">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap mb-1">
+                          <span className="text-xs font-bold text-slate-900 dark:text-white">{r.item_label}</span>
+                          <span className="text-[9px] font-bold bg-slate-100 dark:bg-navy-950 text-slate-500 px-2 py-0.5 rounded uppercase">{r.section_id}</span>
+                          {r.is_completed
+                            ? <span className="text-[9px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 px-2 py-0.5 rounded-full">✓ Submitted</span>
+                            : <span className="text-[9px] font-bold text-amber-600 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 px-2 py-0.5 rounded-full">In Progress</span>
+                          }
+                        </div>
+                        <p className="text-xs text-slate-600 dark:text-slate-300 break-words leading-relaxed">{r.response_text || <span className="italic text-slate-400">No response yet</span>}</p>
+                        <p className="text-[10px] text-slate-400 mt-1">Last updated: {new Date(r.updated_at).toLocaleString()}</p>
+                      </div>
+                      <div className="flex-shrink-0">
+                        <select
+                          value={r.admin_status || 'pending'}
+                          onChange={async (e) => {
+                            const newStatus = e.target.value;
+                            await supabase.from('onboarding_responses').update({ admin_status: newStatus, updated_at: new Date().toISOString() }).eq('id', r.id);
+                            setOnboardingDetail(prev => prev ? prev.map(x => x.id === r.id ? { ...x, admin_status: newStatus } : x) : prev);
+                            toast.success('Status updated');
+                          }}
+                          className="text-[10px] font-bold px-2 py-1 rounded-lg border bg-white dark:bg-navy-950 border-app-border dark:border-navy-800 text-slate-700 dark:text-slate-200 focus:outline-none focus:border-copper"
+                        >
+                          <option value="pending">Pending Review</option>
+                          <option value="approved">Approved</option>
+                          <option value="needs_info">Needs Info</option>
+                          <option value="skipped">Skipped</option>
+                        </select>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-16 text-slate-400 text-xs">No responses submitted yet by this user.</div>
+              )}
+            </div>
+          ) : (
+            /* ── Summary table: all users ── */
+            <div className="bg-white dark:bg-navy border border-app-border dark:border-navy-800 shadow-card rounded-2xl overflow-hidden">
+              <div className="overflow-x-auto scrollbar-thin">
+                <table className="w-full text-left border-collapse min-w-[900px]">
+                  <thead>
+                    <tr className="bg-slate-50 dark:bg-navy-950 border-b border-app-border dark:border-navy-800 text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                      <th className="py-4 px-6">User / Company</th>
+                      <th className="py-4 px-6">Trade</th>
+                      <th className="py-4 px-6">Plan</th>
+                      <th className="py-4 px-6">Onboarding</th>
+                      <th className="py-4 px-6">Concierge</th>
+                      <th className="py-4 px-6">Signed Up</th>
+                      <th className="py-4 px-6 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-app-border dark:divide-navy-800 text-xs text-slate-900 dark:text-white">
+                    {onboardingData.length === 0 ? (
+                      <tr><td colSpan={7} className="py-16 text-center text-slate-400">No users found.</td></tr>
+                    ) : onboardingData.map((u: any) => (
+                      <tr key={u.id} className="hover:bg-slate-50/50 dark:hover:bg-navy-950/40">
+                        <td className="py-4 px-6">
+                          <div className="font-bold">{u.full_name || '—'}</div>
+                          <div className="text-[10px] text-slate-400 mt-0.5">{u.email}</div>
+                          {u.company_name && <div className="text-[10px] text-copper mt-0.5">{u.company_name}</div>}
+                        </td>
+                        <td className="py-4 px-6">
+                          <span className="bg-copper/10 text-copper border border-copper/20 px-2 py-0.5 rounded text-[9px] font-bold uppercase capitalize">
+                            {u.trade || 'General'}
+                          </span>
+                        </td>
+                        <td className="py-4 px-6">
+                          <span className="text-[10px] font-bold text-slate-500 bg-slate-100 dark:bg-navy-950 px-2 py-0.5 rounded uppercase">
+                            {u.plan_tier || 'free'}
+                          </span>
+                        </td>
+                        <td className="py-4 px-6">
+                          {u.onboarding_completed
+                            ? <span className="text-emerald-500 font-bold text-[10px] flex items-center gap-1"><CheckCircle2 className="w-3 h-3" /> Complete</span>
+                            : <span className="text-amber-500 font-bold text-[10px] flex items-center gap-1"><Clock className="w-3 h-3" /> In Progress</span>
+                          }
+                        </td>
+                        <td className="py-4 px-6">
+                          {u.concierge_requested
+                            ? (
+                              <div>
+                                <span className="text-violet-500 font-bold text-[10px] flex items-center gap-1"><Star className="w-3 h-3" /> Requested</span>
+                                {u.concierge_details?.submitted_at && (
+                                  <div className="text-[9px] text-slate-400 mt-0.5">{new Date(u.concierge_details.submitted_at).toLocaleDateString()}</div>
+                                )}
+                                {u.concierge_details?.plan && (
+                                  <div className="text-[9px] text-copper capitalize mt-0.5">{u.concierge_details.plan} plan</div>
+                                )}
+                              </div>
+                            )
+                            : <span className="text-slate-400 text-[10px]">—</span>
+                          }
+                        </td>
+                        <td className="py-4 px-6 text-slate-400 font-semibold">{new Date(u.created_at).toLocaleDateString()}</td>
+                        <td className="py-4 px-6 text-right">
+                          <button
+                            onClick={async () => {
+                              setOnboardingDetailUser(u);
+                              setOnboardingDetailLoading(true);
+                              setOnboardingDetail(null);
+                              const { data } = await supabase
+                                .from('onboarding_responses')
+                                .select('*')
+                                .eq('user_id', u.id)
+                                .order('created_at', { ascending: true });
+                              setOnboardingDetail(data || []);
+                              setOnboardingDetailLoading(false);
+                            }}
+                            className="bg-copper/10 border border-copper/20 text-copper font-bold text-[10px] px-3.5 py-1.5 rounded-xl hover:bg-copper hover:text-white transition-all"
+                          >
+                            View Responses
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </div>
 
       ) : activeTab === 'feature_flags' ? (
@@ -2557,254 +3185,455 @@ Please assign an administrator immediately to prevent collision and address.`,
             </div>
           )}
         </div>
-
-      ) : activeTab === 'system_logs' ? (
+      ) : activeTab === 'revenue' ? (
         /* ═══════════════════════════════════════════════════
-           TAB 12: SYSTEM & SUBSCRIPTION TRACKER
+           REVENUE DASHBOARD
+        ═══════════════════════════════════════════════════ */
+        <div className="space-y-6">
+          <div>
+            <h2 className="font-sora font-extrabold text-slate-900 dark:text-white text-sm flex items-center gap-2 mb-1">
+              <TrendingUp className="w-4 h-4 text-copper" /> Revenue Dashboard
+            </h2>
+            <p className="text-[11px] text-slate-400 mb-5">Platform-wide MRR, seat growth, and subscription health. Refreshed on load.</p>
+          </div>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            {[
+              { label: 'Active Seats', value: members.filter(m => !m.is_admin).length, suffix: '', prefix: '', color: 'text-white', bg: 'bg-white dark:bg-navy', icon: Users },
+              { label: 'Est. MRR', value: members.filter(m => !m.is_admin).length * 99, suffix: '', prefix: '$', color: 'text-emerald-400', bg: 'bg-white dark:bg-navy', icon: DollarSign },
+              { label: 'Waitlist', value: waitlist.length, suffix: ' pending', prefix: '', color: 'text-amber-400', bg: 'bg-white dark:bg-navy', icon: UserCheck },
+              { label: 'Support Open', value: supportTickets.filter(t => t.status === 'open').length, suffix: '', prefix: '', color: 'text-rose-400', bg: 'bg-white dark:bg-navy', icon: HelpCircle },
+            ].map(({ label, value, suffix, prefix, color, bg, icon: Icon }) => (
+              <div key={label} className={`${bg} border border-app-border dark:border-navy-800 rounded-2xl p-5 shadow-card`}>
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{label}</span>
+                  <Icon className="w-4 h-4 text-slate-300 dark:text-slate-600" />
+                </div>
+                <div className={`text-2xl font-sora font-extrabold ${color}`}>{prefix}{value}{suffix}</div>
+              </div>
+            ))}
+          </div>
+
+          <div className="bg-white dark:bg-navy border border-app-border dark:border-navy-800 rounded-2xl p-6 shadow-card">
+            <h3 className="font-bold text-xs text-slate-900 dark:text-white uppercase tracking-wider mb-4 flex items-center gap-2">
+              <Users className="w-3.5 h-3.5 text-copper" /> Active Contractor Seats
+            </h3>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse min-w-[600px]">
+                <thead>
+                  <tr className="text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 dark:border-navy-900">
+                    <th className="pb-3 pr-4">Company</th>
+                    <th className="pb-3 pr-4">Email</th>
+                    <th className="pb-3 pr-4">Joined</th>
+                    <th className="pb-3 text-right">Plan Est.</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50 dark:divide-navy-900 text-xs">
+                  {members.filter(m => !m.is_admin).map(m => (
+                    <tr key={m.id} className="hover:bg-slate-50/50 dark:hover:bg-navy-950/30">
+                      <td className="py-3 pr-4 font-bold text-slate-900 dark:text-white">{m.company_name || m.full_name || '—'}</td>
+                      <td className="py-3 pr-4 text-slate-400">{m.email}</td>
+                      <td className="py-3 pr-4 text-slate-400">{m.created_at ? new Date(m.created_at).toLocaleDateString() : '—'}</td>
+                      <td className="py-3 text-right">
+                        <span className="bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-900/30 text-[9px] font-black px-2.5 py-1 rounded-xl uppercase">Active</span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+      ) : activeTab === 'broadcast' ? (
+        /* ═══════════════════════════════════════════════════
+           BROADCAST EMAIL TO ALL USERS
+        ═══════════════════════════════════════════════════ */
+        <BroadcastPanel members={members} />
+
+      ) : activeTab === 'churn' ? (
+        /* ═══════════════════════════════════════════════════
+           CHURN RISK MONITOR — REAL DATA
+        ═══════════════════════════════════════════════════ */
+        (() => {
+          const churnData = computeChurnStats(members);
+          const critical = churnData.filter(m => m.riskLevel === 'critical');
+          const high = churnData.filter(m => m.riskLevel === 'high');
+          const medium = churnData.filter(m => m.riskLevel === 'medium');
+          const healthy = churnData.filter(m => m.riskLevel === 'low');
+          return (
+          <div className="space-y-6">
+            <div>
+              <h2 className="font-sora font-extrabold text-slate-900 dark:text-white text-sm flex items-center gap-2 mb-1">
+                <Activity className="w-4 h-4 text-rose-400" /> Churn Risk Monitor
+              </h2>
+              <p className="text-[11px] text-slate-400 mb-5">Real-time analysis based on last_login_at tracking. Members who haven't logged in recently are scored for churn risk.</p>
+            </div>
+            {/* Stats row */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              {[
+                { label: 'Critical Risk', count: critical.length, color: 'text-red-500', bg: 'bg-red-50 dark:bg-red-950/10 border-red-200 dark:border-red-900/30' },
+                { label: 'High Risk', count: high.length, color: 'text-amber-500', bg: 'bg-amber-50 dark:bg-amber-950/10 border-amber-200 dark:border-amber-900/30' },
+                { label: 'Medium Risk', count: medium.length, color: 'text-yellow-500', bg: 'bg-yellow-50 dark:bg-yellow-950/10 border-yellow-200 dark:border-yellow-900/30' },
+                { label: 'Healthy', count: healthy.length, color: 'text-emerald-500', bg: 'bg-emerald-50 dark:bg-emerald-950/10 border-emerald-200 dark:border-emerald-900/30' },
+              ].map(s => (
+                <div key={s.label} className={`rounded-2xl border px-4 py-4 ${s.bg}`}>
+                  <div className={`text-2xl font-sora font-extrabold ${s.color}`}>{s.count}</div>
+                  <div className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mt-1">{s.label}</div>
+                </div>
+              ))}
+            </div>
+            <div className="bg-white dark:bg-navy border border-app-border dark:border-navy-800 rounded-2xl shadow-card overflow-hidden">
+              <div className="px-5 py-4 border-b border-app-border dark:border-navy-800 bg-slate-50 dark:bg-navy-950/25">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">All Members — Risk Ranking</span>
+              </div>
+              <div className="divide-y divide-app-border dark:divide-navy-800">
+                {churnData.length === 0 ? (
+                  <div className="py-12 text-center text-slate-400 text-xs">No members to analyze.</div>
+                ) : churnData.map(m => (
+                  <div key={m.id} className="flex items-center justify-between px-5 py-3 hover:bg-slate-50/30 dark:hover:bg-navy-950/20">
+                    <div className="flex-1 min-w-0">
+                      <div className="text-xs font-bold text-slate-900 dark:text-white truncate">{m.company_name || m.full_name || m.email}</div>
+                      <div className="text-[10px] text-slate-400 mt-0.5">
+                        {m.last_login_at 
+                          ? `Last login: ${m.daysSinceLogin}d ago (${new Date(m.last_login_at).toLocaleDateString()})` 
+                          : 'Last login: not yet tracked — login tracking now active'}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3 flex-shrink-0 ml-4">
+                      <div className="text-right">
+                        <div className={`text-xs font-black ${
+                          m.riskLevel === 'critical' ? 'text-red-500' :
+                          m.riskLevel === 'high' ? 'text-amber-500' :
+                          m.riskLevel === 'medium' ? 'text-yellow-500' : 'text-emerald-500'
+                        }`}>{m.riskScore}%</div>
+                        <div className="text-[9px] text-slate-400">risk</div>
+                      </div>
+                      <span className={`text-[9px] font-black px-2 py-1 rounded-lg uppercase ${
+                        m.riskLevel === 'critical' ? 'bg-red-100 text-red-600 dark:bg-red-950/30 dark:text-red-400' :
+                        m.riskLevel === 'high' ? 'bg-amber-100 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400' :
+                        m.riskLevel === 'medium' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-950/30 dark:text-yellow-400' :
+                        'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400'
+                      }`}>{m.riskLevel}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+          );
+        })()
+
+      ) : activeTab === 'stripe' ? (
+        /* ═══════════════════════════════════════════════════
+           STRIPE / SUBSCRIPTION ADMIN PANEL
         ═══════════════════════════════════════════════════ */
         <div className="space-y-6">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="font-sora font-extrabold text-slate-900 dark:text-white text-sm flex items-center gap-2">
-                <CreditCard className="w-4 h-4 text-copper" /> System & Subscription Status
+              <h2 className="font-sora font-extrabold text-slate-900 dark:text-white text-sm flex items-center gap-2 mb-1">
+                <CreditCard className="w-4 h-4 text-violet-400" /> Subscription & Payments Manager
               </h2>
-              <p className="text-[11px] text-slate-400 mt-0.5">Monitor wire transfer payments, active usage metrics, and storage consumption.</p>
+              <p className="text-[11px] text-slate-400">View, activate, cancel subscriptions. Manual overrides for wire payment failures.</p>
             </div>
-            <button onClick={fetchSystemLogs} className="p-2 hover:bg-slate-100 dark:hover:bg-navy-950 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-white transition-all">
-              <RefreshCw className="w-4 h-4" />
+            <button
+              onClick={fetchAllSubscriptions}
+              disabled={subscriptionsLoading}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-navy-700 text-xs font-bold text-slate-500 dark:text-slate-400 hover:border-copper hover:text-copper transition-all"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${subscriptionsLoading ? 'animate-spin' : ''}`} />
+              Refresh
             </button>
           </div>
-
-          {sysLoading ? (
-            <div className="h-40 flex items-center justify-center"><div className="w-7 h-7 border-4 border-copper border-t-transparent rounded-full animate-spin" /></div>
-          ) : (
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* Wire Transfer Payment Card */}
-              <div className="lg:col-span-1 bg-white dark:bg-navy border border-app-border dark:border-navy-800 shadow-card rounded-2xl p-6">
-                <h3 className="font-sora font-extrabold text-xs text-slate-900 dark:text-white mb-5 flex items-center gap-2">
-                  <CreditCard className="w-3.5 h-3.5 text-copper" /> Wire Transfer Payment
-                </h3>
-                {subscription ? (
-                  <div className="space-y-3 text-xs">
-                    <div className="flex justify-between items-center py-2 border-b border-slate-100 dark:border-navy-900">
-                      <span className="font-semibold text-slate-500 dark:text-slate-400">Status</span>
-                      <span className={`font-extrabold px-2.5 py-1 rounded-xl border text-[10px] uppercase tracking-wider ${
-                        (subscription.status as string) === 'active'
-                          ? 'bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-950/20 dark:border-emerald-900/30'
-                          : (subscription.status as string) === 'pending_wire'
-                          ? 'bg-amber-50 text-amber-600 border-amber-200'
-                          : (subscription.status as string) === 'past_due'
-                          ? 'bg-amber-50 text-amber-600 border-amber-200'
-                          : 'bg-rose-50 text-rose-600 border-rose-200'
-                      }`}>
-                        {(subscription.status as string) === 'pending_wire' ? '⏳ Pending Wire' : subscription.status}
-                      </span>
-                    </div>
-                    {(subscription as any).wire_reference && (
-                      <div className="flex justify-between py-2 border-b border-slate-100 dark:border-navy-900">
-                        <span className="font-semibold text-slate-500 dark:text-slate-400">Wire Ref</span>
-                        <span className="font-mono text-[9px] text-slate-400 truncate max-w-[140px]">{(subscription as any).wire_reference}</span>
-                      </div>
-                    )}
-                    {(subscription as any).wire_submitted_at && (
-                      <div className="flex justify-between py-2 border-b border-slate-100 dark:border-navy-900">
-                        <span className="font-semibold text-slate-500 dark:text-slate-400">Submitted</span>
-                        <span className="font-bold text-slate-900 dark:text-white">{new Date((subscription as any).wire_submitted_at).toLocaleDateString()}</span>
-                      </div>
-                    )}
-                    {subscription.current_period_end && (
-                      <div className="flex justify-between py-2 border-b border-slate-100 dark:border-navy-900">
-                        <span className="font-semibold text-slate-500 dark:text-slate-400">Active Until</span>
-                        <span className="font-bold text-slate-900 dark:text-white">{new Date(subscription.current_period_end).toLocaleDateString()}</span>
-                      </div>
-                    )}
-                    <div className="flex justify-between py-2 border-b border-slate-100 dark:border-navy-900">
-                      <span className="font-semibold text-slate-500 dark:text-slate-400">Registered</span>
-                      <span className="font-bold text-slate-900 dark:text-white">{new Date(subscription.created_at).toLocaleDateString()}</span>
-                    </div>
-                    {/* Admin Approve Button */}
-                    {(subscription.status as string) === 'pending_wire' && (
-                      <button
-                        onClick={async () => {
-                          const periodEnd = new Date();
-                          periodEnd.setFullYear(periodEnd.getFullYear() + 1);
-                          await supabase.from('subscriptions').update({
-                            status: 'active',
-                            current_period_end: periodEnd.toISOString(),
-                          }).eq('organization_id', subscription.organization_id);
-                          await supabase.from('organizations').update({ billing_tier: 'pro' })
-                            .eq('id', subscription.organization_id);
-                          fetchSystemLogs();
-                          toast.success('Wire payment approved — account upgraded to Pro!');
-                        }}
-                        className="w-full mt-2 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5"
-                      >
-                        ✓ Approve Wire & Activate Pro
-                      </button>
-                    )}
-                  </div>
-                ) : (
-                  <div className="py-8 text-center">
-                    <CreditCard className="w-7 h-7 text-slate-300 dark:text-slate-700 mx-auto mb-2" />
-                    <p className="text-xs text-slate-400">No subscription record found.</p>
-                  </div>
-                )}
-              </div>
-
-              {/* Usage Metrics Cards */}
-              <div className="lg:col-span-2 space-y-4">
-                <h3 className="font-sora font-extrabold text-xs text-slate-900 dark:text-white flex items-center gap-2">
-                  <TrendingUp className="w-3.5 h-3.5 text-copper" /> Usage Period Metrics
-                </h3>
-
-                {usageStats.length === 0 ? (
-                  <div className="bg-white dark:bg-navy border border-app-border dark:border-navy-800 shadow-card rounded-2xl p-10 text-center">
-                    <Activity className="w-7 h-7 text-slate-300 dark:text-slate-700 mx-auto mb-2" />
-                    <p className="text-xs text-slate-400">No usage data recorded yet.</p>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    {['proposals_sent', 'ai_prompts', 'storage_bytes'].map(metric => {
-                      const record = usageStats.find(u => u.metric_name === metric);
-                      const icons: Record<string, any> = { proposals_sent: FileText, ai_prompts: Bot, storage_bytes: Database };
-                      const MetricIcon = icons[metric] || Activity;
-                      const labels: Record<string, string> = { proposals_sent: 'Proposals Sent', ai_prompts: 'AI Prompts Used', storage_bytes: 'Storage Used' };
-                      const formatValue = (m: string, v: number) => {
-                        if (m === 'storage_bytes') return v > 1048576 ? `${(v / 1048576).toFixed(1)} MB` : `${(v / 1024).toFixed(1)} KB`;
-                        return v.toLocaleString();
-                      };
-                      return (
-                        <div key={metric} className="bg-white dark:bg-navy border border-app-border dark:border-navy-800 shadow-card rounded-2xl p-5">
-                          <div className="flex items-center gap-2 mb-3">
-                            <div className="w-8 h-8 rounded-xl bg-copper/10 border border-copper/20 flex items-center justify-center">
-                              <MetricIcon className="w-4 h-4 text-copper" />
-                            </div>
-                            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{labels[metric]}</span>
-                          </div>
-                          <span className="font-sora font-extrabold text-xl text-slate-900 dark:text-white">
-                            {record ? formatValue(metric, record.count) : '0'}
-                          </span>
-                          {record?.billing_period_start && (
-                            <p className="text-[9px] text-slate-400 mt-1">
-                              Since {new Date(record.billing_period_start).toLocaleDateString()}
-                            </p>
+          <div className="bg-white dark:bg-navy border border-app-border dark:border-navy-800 rounded-2xl shadow-card overflow-hidden">
+            <div className="overflow-x-auto scrollbar-thin">
+              <table className="w-full text-left border-collapse min-w-[700px]">
+                <thead>
+                  <tr className="bg-slate-50 dark:bg-navy-950 border-b border-app-border text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                    <th className="py-4 px-5">Org ID</th>
+                    <th className="py-4 px-5">Plan</th>
+                    <th className="py-4 px-5">Status</th>
+                    <th className="py-4 px-5">Wire Ref</th>
+                    <th className="py-4 px-5">Created</th>
+                    <th className="py-4 px-5 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-app-border dark:divide-navy-800 text-xs">
+                  {allSubscriptions.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="py-12 text-center">
+                        <button onClick={fetchAllSubscriptions} className="text-copper hover:underline text-xs">Load subscriptions</button>
+                      </td>
+                    </tr>
+                  ) : allSubscriptions.map(sub => (
+                    <tr key={sub.id} className="hover:bg-slate-50/40 dark:hover:bg-navy-950/30">
+                      <td className="py-3 px-5 font-mono text-[10px] text-slate-500">{(sub.organization_id || 'N/A').slice(0,8)}...</td>
+                      <td className="py-3 px-5">
+                        <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase ${
+                          sub.plan === 'enterprise' ? 'bg-amber-100 text-amber-700' :
+                          sub.plan === 'pro' ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-500'
+                        }`}>{sub.plan || 'pro'}</span>
+                      </td>
+                      <td className="py-3 px-5">
+                        <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase ${
+                          sub.status === 'active' ? 'bg-emerald-100 text-emerald-700' :
+                          sub.status === 'pending_wire' ? 'bg-amber-100 text-amber-700' :
+                          sub.status === 'canceled' ? 'bg-red-100 text-red-600' :
+                          'bg-slate-100 text-slate-500'
+                        }`}>{sub.status}</span>
+                      </td>
+                      <td className="py-3 px-5 font-mono text-[10px] text-slate-400">{sub.wire_reference || '—'}</td>
+                      <td className="py-3 px-5 text-slate-400">{sub.created_at ? new Date(sub.created_at).toLocaleDateString() : '—'}</td>
+                      <td className="py-3 px-5 text-right">
+                        <div className="flex gap-1 justify-end">
+                          {sub.status !== 'active' && (
+                            <button
+                              onClick={() => handleManualActivateSub(sub.id)}
+                              className="px-2.5 py-1 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10px] font-bold hover:bg-emerald-500/20 transition-all"
+                            >
+                              Activate
+                            </button>
+                          )}
+                          {sub.status !== 'canceled' && (
+                            <button
+                              onClick={() => handleCancelSub(sub.id)}
+                              className="px-2.5 py-1 rounded-lg bg-red-500/10 text-red-500 text-[10px] font-bold hover:bg-red-500/20 transition-all"
+                            >
+                              Cancel
+                            </button>
                           )}
                         </div>
-                      );
-                    })}
-                  </div>
-                )}
-
-                {/* Raw usage table */}
-                {usageStats.length > 0 && (
-                  <div className="bg-white dark:bg-navy border border-app-border dark:border-navy-800 shadow-card rounded-2xl overflow-hidden">
-                    <div className="px-5 py-3.5 border-b border-slate-100 dark:border-navy-850 bg-slate-50 dark:bg-navy-950/25">
-                      <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400">All Usage Periods</span>
-                    </div>
-                    <div className="overflow-x-auto scrollbar-thin">
-                      <table className="w-full text-xs text-left">
-                        <thead>
-                          <tr className="border-b border-slate-100 dark:border-navy-850 text-[9px] font-bold uppercase tracking-wider text-slate-400">
-                            <th className="py-3 px-5">Metric</th>
-                            <th className="py-3 px-5">Count</th>
-                            <th className="py-3 px-5">Period Start</th>
-                            <th className="py-3 px-5">Period End</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100 dark:divide-navy-900">
-                          {usageStats.map(u => (
-                            <tr key={u.id} className="hover:bg-slate-50/50 dark:hover:bg-navy-950/30">
-                              <td className="py-3 px-5 font-bold capitalize text-slate-900 dark:text-white">{u.metric_name.replace('_', ' ')}</td>
-                              <td className="py-3 px-5 text-copper font-extrabold">{u.count.toLocaleString()}</td>
-                              <td className="py-3 px-5 text-slate-400">{new Date(u.billing_period_start).toLocaleDateString()}</td>
-                              <td className="py-3 px-5 text-slate-400">{u.billing_period_end ? new Date(u.billing_period_end).toLocaleDateString() : 'Ongoing'}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                )}
-              </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
-          )}
-        </div>
-
-      ) : null}
-
-      {/* Invite Modal */}
-      {showInviteModal && (
-        <div className="fixed inset-0 bg-slate-950/45 dark:bg-slate-950/65 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-navy border border-slate-200 dark:border-navy-800 rounded-2xl p-6 max-w-md w-full shadow-premium animate-scale-in text-left">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="w-12 h-12 bg-slate-100 dark:bg-navy-950 rounded-2xl flex items-center justify-center text-slate-900 dark:text-white flex-shrink-0">
-                <UserCheck className="w-6 h-6" />
-              </div>
-              <div>
-                <h3 className="text-sm font-sora font-extrabold text-slate-900 dark:text-white">Send Enterprise Invitation</h3>
-                <p className="text-slate-400 text-[10px] mt-0.5">Sends a secure onboarding setup link directly to their inbox.</p>
-              </div>
-            </div>
-
-            <form onSubmit={handleInvite} className="space-y-4 font-inter text-xs">
-              <div>
-                <label className="block text-slate-700 dark:text-slate-300 font-bold mb-1.5">Recipient Email <span className="text-rose-500">*</span></label>
-                <input
-                  type="email"
-                  required
-                  value={inviteEmail}
-                  onChange={e => setInviteEmail(e.target.value)}
-                  placeholder="contractor@company.com"
-                  className="w-full px-4 py-2.5 bg-slate-50 dark:bg-navy-950 border border-slate-200 dark:border-navy-850 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-copper"
-                />
-              </div>
-
-              <div>
-                <label className="block text-slate-700 dark:text-slate-300 font-bold mb-1.5">Full Name</label>
-                <input
-                  type="text"
-                  value={inviteName}
-                  onChange={e => setInviteName(e.target.value)}
-                  placeholder="John Smith"
-                  className="w-full px-4 py-2.5 bg-slate-50 dark:bg-navy-950 border border-slate-200 dark:border-navy-850 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-copper"
-                />
-              </div>
-
-              <div>
-                <label className="block text-slate-700 dark:text-slate-300 font-bold mb-1.5">Company Name</label>
-                <input
-                  type="text"
-                  value={inviteCompany}
-                  onChange={e => setInviteCompany(e.target.value)}
-                  placeholder="Smith Roofing LLC"
-                  className="w-full px-4 py-2.5 bg-slate-50 dark:bg-navy-950 border border-slate-200 dark:border-navy-850 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-copper"
-                />
-              </div>
-
-              <div className="flex items-center justify-end gap-3 pt-4 border-t border-app-border dark:border-navy-800">
-                <button
-                  type="button"
-                  onClick={() => setShowInviteModal(false)}
-                  className="px-4 py-2 text-slate-400 hover:text-slate-600 dark:hover:text-white font-bold"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={inviting}
-                  className="bg-copper hover:bg-copper-hover disabled:opacity-50 text-white font-bold px-5 py-2 rounded-xl transition-all shadow-md flex items-center gap-1.5"
-                >
-                  {inviting ? (
-                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  ) : (
-                    'Send Magic Link'
-                  )}
-                </button>
-              </div>
-            </form>
+          </div>
+          <div className="p-4 bg-amber-50 dark:bg-amber-950/10 border border-amber-200 dark:border-amber-900/30 rounded-xl text-xs text-amber-700 dark:text-amber-400">
+            <strong>Note:</strong> For Stripe refunds, cancellations, and invoice management, visit the <a href="https://dashboard.stripe.com" target="_blank" rel="noopener noreferrer" className="underline">Stripe Dashboard</a> directly. STRIPE_SECRET_KEY must be set in Supabase Edge Function secrets.
           </div>
         </div>
-      )}
+
+      ) : activeTab === 'pricebook_admin' ? (
+        /* ═══════════════════════════════════════════════════
+           GLOBAL PRICE BOOK ADMIN
+        ═══════════════════════════════════════════════════ */
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="font-sora font-extrabold text-slate-900 dark:text-white text-sm flex items-center gap-2 mb-1">
+                <Package className="w-4 h-4 text-copper" /> Global Price Book Admin
+              </h2>
+              <p className="text-[11px] text-slate-400">View all price book items across all contractors. Approve or manage global items.</p>
+            </div>
+            <button
+              onClick={fetchGlobalPriceBook}
+              disabled={priceBookLoading}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-navy-700 text-xs font-bold text-slate-500 dark:text-slate-400 hover:border-copper hover:text-copper transition-all"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${priceBookLoading ? 'animate-spin' : ''}`} />
+              Load Items
+            </button>
+          </div>
+          <div className="bg-white dark:bg-navy border border-app-border dark:border-navy-800 rounded-2xl shadow-card overflow-hidden">
+            <div className="overflow-x-auto scrollbar-thin">
+              <table className="w-full text-left border-collapse min-w-[700px]">
+                <thead>
+                  <tr className="bg-slate-50 dark:bg-navy-950 border-b border-app-border text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                    <th className="py-3 px-5">Name</th>
+                    <th className="py-3 px-5">Trade</th>
+                    <th className="py-3 px-5">Category</th>
+                    <th className="py-3 px-5">Unit Price</th>
+                    <th className="py-3 px-5">Owner</th>
+                    <th className="py-3 px-5">Global</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-app-border dark:divide-navy-800 text-xs">
+                  {globalPriceBook.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="py-12 text-center text-slate-400">Click "Load Items" to view all price book entries.</td>
+                    </tr>
+                  ) : globalPriceBook.map(item => (
+                    <tr key={item.id} className="hover:bg-slate-50/40 dark:hover:bg-navy-950/30">
+                      <td className="py-3 px-5 font-bold text-slate-900 dark:text-white">{item.name}</td>
+                      <td className="py-3 px-5 text-slate-500">{item.trade}</td>
+                      <td className="py-3 px-5 text-slate-500">{item.category}</td>
+                      <td className="py-3 px-5 font-bold text-copper">${Number(item.default_unit_price).toFixed(2)}</td>
+                      <td className="py-3 px-5 font-mono text-[10px] text-slate-400">{item.user_id ? item.user_id.slice(0,8)+'...' : 'System'}</td>
+                      <td className="py-3 px-5">
+                        {item.is_global ? (
+                          <span className="bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded text-[9px] font-bold">Global</span>
+                        ) : (
+                          <span className="bg-slate-100 text-slate-500 px-2 py-0.5 rounded text-[9px] font-bold">Private</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+            ) : activeTab === 'billing' ? (
+        /* ═══════════════════════════════════════════════════
+           TAB: WIRE & BILLING MANAGEMENT
+        ═══════════════════════════════════════════════════ */
+        <div className="space-y-6">
+          <div>
+            <h2 className="font-sora font-extrabold text-slate-900 dark:text-white text-sm flex items-center gap-2 mb-1">
+              <CreditCard className="w-4 h-4 text-copper" /> Wire Transfer & Billing Settings
+            </h2>
+            <p className="text-[11px] text-slate-400 mb-5">Manage the bank wire details shown to contractors on their Settings page. Changes reflect immediately for all users.</p>
+          </div>
+
+          {/* Wire Details Editor */}
+          <div className="bg-white dark:bg-navy border border-app-border dark:border-navy-800 rounded-2xl shadow-card overflow-hidden">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-app-border dark:border-navy-800">
+              <div>
+                <h3 className="font-sora font-extrabold text-sm text-slate-900 dark:text-white flex items-center gap-2">
+                  <Shield className="w-4 h-4 text-copper" /> Bank Wire Details
+                </h3>
+                <p className="text-[11px] text-slate-400 mt-0.5">These are the banking credentials displayed on the contractor Settings page.</p>
+              </div>
+              <button
+                onClick={() => { if (!editingWire) fetchWireData(); setEditingWire(!editingWire); }}
+                className={`flex items-center gap-1.5 px-3 py-1.5 border rounded-xl font-bold text-xs transition-all ${editingWire ? 'bg-rose-50 border-rose-200 text-rose-500 dark:bg-rose-950/20 dark:border-rose-800 dark:text-rose-400' : 'border-slate-200 dark:border-navy-800 hover:border-copper text-slate-500 dark:text-slate-400 hover:text-copper'}`}
+              >
+                {editingWire ? <X className="w-3.5 h-3.5" /> : <Pencil className="w-3.5 h-3.5" />}
+                {editingWire ? 'Cancel' : 'Edit Details'}
+              </button>
+            </div>
+
+            {wireLoading ? (
+              <div className="p-8 flex items-center justify-center">
+                <div className="w-6 h-6 border-2 border-copper border-t-transparent rounded-full animate-spin" />
+              </div>
+            ) : editingWire ? (
+              <div className="p-6 space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {[
+                    { label: 'Bank Name', field: 'wire_bank_name', placeholder: 'e.g. Chase Business Banking' },
+                    { label: 'Account Name', field: 'wire_account_name', placeholder: 'e.g. PeakEstimator LLC' },
+                    { label: 'Account Number', field: 'wire_account_number', placeholder: 'e.g. XXXX-XXXX-4892' },
+                    { label: 'Routing Number (ABA)', field: 'wire_routing_number', placeholder: 'e.g. 021000021' },
+                    { label: 'SWIFT / BIC Code', field: 'wire_swift', placeholder: 'e.g. CHASUS33' },
+                    { label: 'Billing Contact Email', field: 'wire_contact_email', placeholder: 'e.g. billing@peakestimator.com' },
+                  ].map(({ label, field, placeholder }) => (
+                    <div key={field}>
+                      <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">{label}</label>
+                      <input
+                        type="text"
+                        value={wireForm[field as keyof typeof wireForm]}
+                        onChange={e => setWireForm(p => ({ ...p, [field]: e.target.value }))}
+                        placeholder={placeholder}
+                        className="w-full px-3 py-2.5 bg-slate-50 dark:bg-navy-950 border border-slate-200 dark:border-navy-850 rounded-xl text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-copper transition-colors"
+                      />
+                    </div>
+                  ))}
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">Wire Instructions (shown to contractors)</label>
+                  <textarea
+                    value={wireForm.wire_instructions}
+                    onChange={e => setWireForm(p => ({ ...p, wire_instructions: e.target.value }))}
+                    rows={3}
+                    placeholder="e.g. International transfers: include SWIFT code. Processing takes 1–3 business days..."
+                    className="w-full px-3 py-2.5 bg-slate-50 dark:bg-navy-950 border border-slate-200 dark:border-navy-850 rounded-xl text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-copper resize-none transition-colors"
+                  />
+                </div>
+                <div className="flex justify-end">
+                  <button
+                    onClick={handleSaveWire}
+                    disabled={savingWire}
+                    className="flex items-center gap-2 px-5 py-2.5 bg-copper hover:bg-copper-hover text-white rounded-xl text-sm font-bold disabled:opacity-50 transition-all shadow-md"
+                  >
+                    {savingWire ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Save className="w-4 h-4" />}
+                    {savingWire ? 'Saving...' : 'Save Wire Details'}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="divide-y divide-slate-100 dark:divide-navy-900">
+                {[
+                  { label: 'Bank Name', value: wireForm.wire_bank_name },
+                  { label: 'Account Name', value: wireForm.wire_account_name },
+                  { label: 'Account Number', value: wireForm.wire_account_number },
+                  { label: 'Routing Number', value: wireForm.wire_routing_number },
+                  { label: 'SWIFT / BIC', value: wireForm.wire_swift },
+                  { label: 'Contact Email', value: wireForm.wire_contact_email },
+                ].map(({ label, value }) => (
+                  <div key={label} className="flex items-center justify-between px-6 py-3">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 w-40">{label}</span>
+                    <span className="text-sm font-mono font-semibold text-slate-900 dark:text-white flex-1">
+                      {value || <span className="text-slate-400 italic font-normal font-inter">Not set</span>}
+                    </span>
+                  </div>
+                ))}
+                {wireForm.wire_instructions && (
+                  <div className="px-6 py-3">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Instructions</span>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">{wireForm.wire_instructions}</p>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Pending Wire Approvals */}
+          <div className="bg-white dark:bg-navy border border-app-border dark:border-navy-800 rounded-2xl shadow-card overflow-hidden">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-app-border dark:border-navy-800">
+              <div>
+                <h3 className="font-sora font-extrabold text-sm text-slate-900 dark:text-white flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-amber-500" /> Pending Wire Approvals
+                  {pendingWires.length > 0 && (
+                    <span className="bg-amber-500 text-white text-[9px] font-black px-2 py-0.5 rounded-full">{pendingWires.length}</span>
+                  )}
+                </h3>
+                <p className="text-[11px] text-slate-400 mt-0.5">Contractors who submitted wire references waiting for manual activation.</p>
+              </div>
+              <button onClick={fetchWireData} className="p-2 hover:bg-slate-100 dark:hover:bg-navy-950 rounded-xl transition-all text-slate-400 hover:text-copper">
+                <RefreshCw className="w-4 h-4" />
+              </button>
+            </div>
+
+            {pendingWires.length === 0 ? (
+              <div className="p-8 text-center">
+                <Check className="w-8 h-8 text-emerald-400 mx-auto mb-2 opacity-50" />
+                <p className="text-sm text-slate-400">No pending wire approvals.</p>
+              </div>
+            ) : (
+              <div className="divide-y divide-slate-100 dark:divide-navy-900">
+                {pendingWires.map(sub => (
+                  <div key={sub.id} className="flex flex-col sm:flex-row sm:items-center gap-4 px-6 py-4">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-xs font-bold text-slate-900 dark:text-white">{sub.organization_id || 'Unknown Org'}</span>
+                        <span className="bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 text-[9px] font-black px-2 py-0.5 rounded uppercase">{sub.plan || 'pro'}</span>
+                      </div>
+                      <p className="text-[11px] text-slate-400 font-mono">Ref: {sub.wire_reference || '—'}</p>
+                      <p className="text-[10px] text-slate-400 mt-0.5">Submitted: {sub.wire_submitted_at ? new Date(sub.wire_submitted_at).toLocaleString() : '—'}</p>
+                    </div>
+                    <button
+                      onClick={() => handleApproveWirePayment(sub)}
+                      disabled={approvingWire === sub.id}
+                      className="flex items-center gap-2 px-4 py-2 bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500 hover:text-white font-bold text-xs rounded-xl transition-all disabled:opacity-50 whitespace-nowrap"
+                    >
+                      {approvingWire === sub.id
+                        ? <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                        : <Check className="w-3 h-3" />}
+                      {approvingWire === sub.id ? 'Approving...' : 'Approve & Activate'}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+
+      ) : null
+      }
     </div>
   );
 }

@@ -42,7 +42,7 @@ serve(async (req) => {
       ? `✅ ${clientName || project.client_name} Approved Your Proposal — ${project.name}`
       : `📝 ${clientName || project.client_name} Requested Changes — ${project.name}`;
 
-    const portalUrl = `${Deno.env.get("SITE_URL") || "https://lmtrx.us"}/approve/${shareToken}`;
+    const portalUrl = `${Deno.env.get("SITE_URL") || "https://peakestimator.com"}/approve/${shareToken}`;
     const approvalDate = new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
 
     const htmlBody = `

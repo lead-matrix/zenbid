@@ -18,6 +18,8 @@ import LandingPage from './pages/LandingPage';
 import AdminPortal from './pages/AdminPortal';
 import ClientSuccess from './pages/ClientSuccess';
 import SupportDesk from './pages/SupportDesk';
+import EnterpriseOnboarding from './pages/EnterpriseOnboarding';
+import MaintenanceContracts from './pages/MaintenanceContracts';
 
 function SmartRoot() {
   const [session, setSession] = useState<boolean | null>(null);
@@ -83,7 +85,6 @@ function AdminRoute({ children }: { children: React.ReactNode }) {
   }
 
   if (!profile || !profile.is_admin) {
-    // Render nothing and redirect
     return <Navigate to="/dashboard" replace />;
   }
 
@@ -98,7 +99,6 @@ function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-screen bg-slate-50 dark:bg-navy-950 transition-colors duration-200">
       <Sidebar />
-      {/* pt-14 on mobile for top bar, lg:pt-0 for desktop; lg:ml-60 for sidebar offset */}
       <main className="flex-1 overflow-auto pt-14 lg:pt-0 lg:ml-60 app-main">
         {children}
       </main>
@@ -133,6 +133,9 @@ function App() {
         <Route path="/admin"       element={<ProtectedRoute><AppLayout><AdminRoute><AdminPortal /></AdminRoute></AppLayout></ProtectedRoute>} />
         <Route path="/success"     element={<ProtectedRoute><AppLayout><ClientSuccess /></AppLayout></ProtectedRoute>} />
         <Route path="/support"     element={<ProtectedRoute><AppLayout><SupportDesk /></AppLayout></ProtectedRoute>} />
+        <Route path="/onboarding"  element={<EnterpriseOnboarding />} />
+        {/* NEW ROUTES */}
+        <Route path="/contracts"   element={<ProtectedRoute><AppLayout><MaintenanceContracts /></AppLayout></ProtectedRoute>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../api/supabase';
+import { useAppStore } from '../store/useAppStore';
 import type { Project, StatusType } from '../types';
 import { toast } from 'sonner';
 import { eventBus } from '../lib/eventBus';
@@ -10,9 +11,12 @@ export function useProjects() {
 
   const fetchProjects = useCallback(async () => {
     setLoading(true);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { setLoading(false); return; }
     const { data, error } = await supabase
       .from('projects')
       .select('*')
+      .eq('user_id', user.id)
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -31,10 +35,24 @@ export function useProjects() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return null;
 
+    // Snapshot contractor branding from profile at creation time
+    const profile = useAppStore.getState().profile;
+    const brandSnapshot = profile ? {
+      company_name:  input.company_name  || profile.company_name  || '',
+      company_email: input.company_email || profile.company_email || '',
+      company_phone: input.company_phone || profile.company_phone || '',
+      company_logo:  input.company_logo  || profile.company_logo  || '',
+      labor_markup:     input.labor_markup     ?? profile.default_labor_markup     ?? 30,
+      material_markup:  input.material_markup  ?? profile.default_material_markup  ?? 18,
+      equipment_markup: input.equipment_markup ?? profile.default_equipment_markup ?? 12,
+      tax_rate:         input.tax_rate         ?? profile.default_tax_rate         ?? 8,
+    } : {};
+
     const { data, error } = await supabase
       .from('projects')
       .insert({
         ...input,
+        ...brandSnapshot,
         user_id: user.id,
         status: 'lead',
       })

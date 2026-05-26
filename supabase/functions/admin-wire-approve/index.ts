@@ -68,7 +68,7 @@ serve(async (req) => {
                 <p style="margin: 0; font-size: 18px; font-weight: 700;">Plan: <span style="color: #B27150;">${plan.toUpperCase()}</span></p>
                 ${expires_at ? `<p style="margin: 8px 0 0; color: #94A3B8; font-size: 14px;">Active until: ${new Date(expires_at).toLocaleDateString()}</p>` : ''}
               </div>
-              <a href="https://lmtrx.us/dashboard" style="display: inline-block; background: #B27150; color: white; padding: 14px 28px; border-radius: 10px; text-decoration: none; font-weight: 700;">
+              <a href="https://peakestimator.com/dashboard" style="display: inline-block; background: #B27150; color: white; padding: 14px 28px; border-radius: 10px; text-decoration: none; font-weight: 700;">
                 Open Dashboard →
               </a>
               <p style="color: #475569; font-size: 12px; margin-top: 32px;">Questions? Reply to this email or contact billing@peakestimator.com</p>

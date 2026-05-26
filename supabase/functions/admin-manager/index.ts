@@ -58,7 +58,16 @@ serve(async (req) => {
         throw inviteErr;
       }
 
-      return new Response(JSON.stringify({ ok: true, user: inviteData.user }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      // Extract the action_link (magic invite URL) from the response if available
+      // Supabase auth.admin.inviteUserByEmail sends the email automatically.
+      // The action_link is returned so admin can also share it manually.
+      const actionLink = (inviteData as any)?.properties?.action_link || null;
+
+      return new Response(JSON.stringify({ 
+        ok: true, 
+        user: inviteData.user,
+        action_link: actionLink
+      }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     if (action === 'delete') {
