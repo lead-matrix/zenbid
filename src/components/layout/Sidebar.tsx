@@ -284,37 +284,139 @@ export default function Sidebar() {
         </div>
       )}
 
-      {/* ── Mobile bottom nav ───────────────────────── */}
-      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-navy-900 border-t border-slate-100 dark:border-navy-850 shadow-lg flex items-center justify-around px-1 h-16 transition-colors">
-        {navItems.filter(item => !(item.hideForAdmin && profile?.is_admin)).map(({ path, label, icon: Icon }) => (
-          <NavLink key={path} to={path} className={({ isActive }) =>
-            `flex flex-col items-center gap-0.5 px-3 py-2 rounded-xl transition-all flex-1 ${
-              isActive ? 'text-copper' : 'text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'
-            }`}>
-            {({ isActive }) => (
-              <>
-                <Icon className={isActive ? 'text-copper' : 'text-slate-400'} style={{ width: 20, height: 20 }} />
-                <span className="text-[10px] font-medium leading-none">{label}</span>
-              </>
-            )}
-          </NavLink>
-        ))}
-        {profile?.is_admin && (
-          <NavLink to="/admin" className={({ isActive }) =>
-            `flex flex-col items-center gap-0.5 px-3 py-2 rounded-xl transition-all flex-1 ${
-              isActive ? 'text-rose-500' : 'text-slate-400 hover:text-rose-400'
-            }`}>
-            {({ isActive }) => (
-              <>
-                <ShieldAlert className={isActive ? 'text-rose-500' : 'text-slate-400'} style={{ width: 20, height: 20 }} />
-                <span className="text-[10px] font-medium leading-none">Admin</span>
-              </>
-            )}
-          </NavLink>
-        )}
-      </nav>
+ 
+      {/* ══════════════════════════════════════════════
+           MOBILE — Top bar + Slide-in sidebar drawer
+         ══════════════════════════════════════════════ */}
 
-      {showNotifications && <NotificationPanel onClose={() => setShowNotifications(false)} />}
+      {/* Top bar */}
+      <div className="lg:hidden fixed top-0 left-0 right-0 z-50 bg-navy/95 backdrop-blur-md border-b border-navy-700/60 h-14 flex items-center justify-between px-4 shadow-lg">
+        <Link to="/dashboard" className="flex items-center gap-2 hover:opacity-90 transition-opacity">
+          <PeakLogo size={26} />
+          <span className="text-sm font-bold text-white tracking-tight">Peak<span className="text-copper">Estimator</span></span>
+        </Link>
+        <div className="flex items-center gap-1">
+          <button onClick={toggleTheme} className="p-2 text-slate-400 hover:text-white rounded-lg transition-all">
+            {isDark ? <Sun style={{ width: 17, height: 17 }} className="text-amber-400" /> : <Moon style={{ width: 17, height: 17 }} />}
+          </button>
+          <button onClick={() => setShowNotifications(prev => !prev)} className="p-2 text-slate-400 hover:text-white rounded-lg transition-all relative">
+            <Bell style={{ width: 17, height: 17 }} className={unreadCount > 0 ? 'text-copper animate-pulse' : ''} />
+            {unreadCount > 0 && (
+              <span className="absolute top-1 right-1 w-4 h-4 bg-copper text-white text-[8px] font-black rounded-full flex items-center justify-center">{unreadCount > 9 ? '9+' : unreadCount}</span>
+            )}
+          </button>
+          <button
+            onClick={() => setMobileOpen(true)}
+            className="p-2 text-slate-400 hover:text-white rounded-lg transition-all ml-1"
+            aria-label="Open menu"
+          >
+            <Menu style={{ width: 20, height: 20 }} />
+          </button>
+        </div>
+      </div>
+
+      {/* Drawer backdrop */}
+      {mobileOpen && (
+        <div
+          className="lg:hidden fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm"
+          onClick={() => setMobileOpen(false)}
+        />
+      )}
+
+      {/* Slide-in drawer */}
+      <aside className={`lg:hidden fixed top-0 left-0 h-full w-72 z-[70] bg-navy border-r border-navy-700/80 shadow-2xl flex flex-col transition-transform duration-300 ease-out ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+        {/* Drawer header */}
+        <div className="px-5 py-4 border-b border-navy-700/60 flex items-center justify-between">
+          <Link to="/dashboard" onClick={() => setMobileOpen(false)} className="flex items-center gap-2.5">
+            <PeakLogo size={30} />
+            <div>
+              <div className="text-sm font-bold text-white leading-none">Peak<span className="text-copper">Estimator</span></div>
+              <div className="text-[9px] text-slate-400 uppercase tracking-widest mt-0.5">Enterprise</div>
+            </div>
+          </Link>
+          <button
+            onClick={() => setMobileOpen(false)}
+            className="p-1.5 rounded-xl text-slate-400 hover:text-white hover:bg-navy-700 transition-all"
+          >
+            <X style={{ width: 18, height: 18 }} />
+          </button>
+        </div>
+
+        {/* Profile card */}
+        {profile && (
+          <div className="mx-3 mt-4 px-4 py-3 rounded-2xl bg-navy-700/60 border border-navy-700/40">
+            <div className="text-xs font-bold text-white truncate">{profile.company_name || profile.full_name || 'Your Company'}</div>
+            <div className="text-[10px] text-slate-400 truncate mt-0.5">{profile.email}</div>
+            {profile.is_admin && (
+              <span className="inline-block mt-1.5 text-[8px] font-black uppercase tracking-widest px-2 py-0.5 bg-rose-500/15 text-rose-400 border border-rose-500/20 rounded-full">Superadmin</span>
+            )}
+          </div>
+        )}
+
+        {/* Nav links */}
+        <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto scrollbar-thin">
+          {navItems.filter(item => !(item.hideForAdmin && profile?.is_admin)).map(({ path, label, icon: Icon }) => (
+            <NavLink
+              key={path}
+              to={path}
+              onClick={() => setMobileOpen(false)}
+              className={({ isActive }) =>
+                `flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all ${
+                  isActive
+                    ? 'bg-navy-700 text-white border-l-2 border-copper shadow-sm'
+                    : 'text-slate-400 hover:bg-navy-700/50 hover:text-white'
+                }`
+              }
+            >
+              {({ isActive }) => (
+                <>
+                  <Icon className={`shrink-0 ${isActive ? 'text-copper' : 'text-slate-500'}`} style={{ width: 18, height: 18 }} />
+                  {label}
+                </>
+              )}
+            </NavLink>
+          ))}
+
+          {profile?.is_admin && (
+            <NavLink
+              to="/admin"
+              onClick={() => setMobileOpen(false)}
+              className={({ isActive }) =>
+                `flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all mt-2 ${
+                  isActive ? 'bg-rose-500/10 text-rose-400 border-l-2 border-rose-500' : 'text-slate-400 hover:bg-rose-500/5 hover:text-rose-400'
+                }`
+              }
+            >
+              {({ isActive }) => (
+                <>
+                  <ShieldAlert className={`shrink-0 ${isActive ? 'text-rose-400' : 'text-slate-500'}`} style={{ width: 18, height: 18 }} />
+                  Admin Portal
+                </>
+              )}
+            </NavLink>
+          )}
+        </nav>
+
+        {/* Bottom controls */}
+        <div className="px-3 pb-6 pt-3 border-t border-navy-700/60 space-y-2">
+          <button
+            onClick={() => { setShowNotifications(prev => !prev); setMobileOpen(false); }}
+            className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium text-slate-400 hover:bg-navy-700 hover:text-white transition-all"
+          >
+            <Bell style={{ width: 16, height: 16 }} className={unreadCount > 0 ? 'text-copper' : ''} />
+            Notifications
+            {unreadCount > 0 && <span className="ml-auto bg-copper text-white text-[9px] font-black px-2 py-0.5 rounded-full">{unreadCount}</span>}
+          </button>
+          <button onClick={handleLogout} className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium text-slate-400 hover:bg-rose-500/10 hover:text-rose-400 transition-all">
+            <LogOut style={{ width: 16, height: 16 }} />
+            Sign Out
+          </button>
+          <div className="text-center text-[9px] text-slate-600 uppercase tracking-widest pt-1">PeakEstimator v1.2.0</div>
+        </div>
+      </aside>
+
+      {showNotifications && <NotificationPanel onClose={() => setShowNotifications(false)} />
+      }
     </>
   );
 }

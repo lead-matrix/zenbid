@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import BroadcastPanel from '../components/admin/BroadcastPanel';
 import { supabase } from '../api/supabase';
 import { useEventBus } from '../hooks/useEventBus';
 import {
@@ -26,7 +27,7 @@ interface WaitlistItem {
   created_at: string;
 }
 
-type AdminTab = 'members' | 'crm' | 'integrations' | 'support' | 'email_sandbox' | 'waitlist' | 'feature_flags' | 'ai_settings' | 'automation' | 'templates' | 'audit_logs' | 'system_logs';
+type AdminTab = 'members' | 'crm' | 'integrations' | 'support' | 'email_logs' | 'waitlist' | 'feature_flags' | 'ai_settings' | 'automation' | 'templates' | 'audit_logs' | 'revenue' | 'broadcast' | 'churn';
 
 export default function AdminPortal() {
   const { triggerEvent } = useEventBus();
@@ -967,10 +968,10 @@ Please assign an administrator immediately to prevent collision and address.`,
           {[
             { id: 'members', label: 'Seat Manager', icon: Users },
             { id: 'crm', label: 'Customer CRM', icon: Star },
-            { id: 'integrations', label: 'Integration Desk', icon: Zap },
             { id: 'support', label: 'Support Desk', icon: HelpCircle },
-            { id: 'email_sandbox', label: 'Email Sandbox', icon: Mail },
-            { id: 'waitlist', label: 'Waitlist Queue', icon: UserCheck }
+            { id: 'email_logs', label: 'Email Delivery', icon: Mail },
+            { id: 'waitlist', label: 'Waitlist Queue', icon: UserCheck },
+            { id: 'broadcast', label: 'Broadcast', icon: Send },
           ].map(tab => {
             const Icon = tab.icon;
             return (
@@ -993,12 +994,14 @@ Please assign an administrator immediately to prevent collision and address.`,
         <div className="flex items-center gap-1 flex-wrap border-t border-slate-100 dark:border-navy-900 pt-2">
           <span className="text-[9px] font-bold text-copper/80 uppercase tracking-widest mr-2">Enterprise</span>
           {[
+            { id: 'revenue', label: 'Revenue', icon: TrendingUp },
             { id: 'feature_flags', label: 'Feature Flags', icon: Flag },
             { id: 'ai_settings', label: 'AI Controls', icon: Bot },
             { id: 'automation', label: 'Automation', icon: Bell },
             { id: 'templates', label: 'Templates', icon: LayoutTemplate },
             { id: 'audit_logs', label: 'Audit Logs', icon: ScrollText },
-            { id: 'system_logs', label: 'System & Billing', icon: CreditCard }
+            { id: 'integrations', label: 'Integration Desk', icon: Zap },
+            { id: 'churn', label: 'Churn Risk', icon: Activity },
           ].map(tab => {
             const Icon = tab.icon;
             return (
@@ -1013,7 +1016,6 @@ Please assign an administrator immediately to prevent collision and address.`,
                   if (tab.id === 'automation') fetchSystemSettings();
                   if (tab.id === 'templates') fetchTemplates();
                   if (tab.id === 'audit_logs') fetchAuditLogs(1);
-                  if (tab.id === 'system_logs') fetchSystemLogs();
                 }}
                 className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl font-bold text-[11px] transition-all whitespace-nowrap ${
                   activeTab === tab.id
@@ -1030,7 +1032,7 @@ Please assign an administrator immediately to prevent collision and address.`,
       </div>
 
       {/* Global Search and Filter */}
-      {activeTab !== 'email_sandbox' && (
+      {activeTab !== 'email_logs' && (
         <div className="relative mb-6 max-w-md">
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 dark:text-slate-500" />
           <input
@@ -1523,7 +1525,7 @@ Please assign an administrator immediately to prevent collision and address.`,
             )}
           </div>
         </div>
-      ) : activeTab === 'email_sandbox' ? (
+      ) : activeTab === 'email_logs' ? (
         /* TAB 5: RESPONSIVE EMAIL SANDBOX PREVIEWER */
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start font-inter text-xs">
           
@@ -2436,254 +2438,103 @@ Please assign an administrator immediately to prevent collision and address.`,
             </div>
           )}
         </div>
-
-      ) : activeTab === 'system_logs' ? (
+      ) : activeTab === 'revenue' ? (
         /* ═══════════════════════════════════════════════════
-           TAB 12: SYSTEM & SUBSCRIPTION TRACKER
+           REVENUE DASHBOARD
         ═══════════════════════════════════════════════════ */
         <div className="space-y-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="font-sora font-extrabold text-slate-900 dark:text-white text-sm flex items-center gap-2">
-                <CreditCard className="w-4 h-4 text-copper" /> System & Subscription Status
-              </h2>
-              <p className="text-[11px] text-slate-400 mt-0.5">Monitor wire transfer payments, active usage metrics, and storage consumption.</p>
-            </div>
-            <button onClick={fetchSystemLogs} className="p-2 hover:bg-slate-100 dark:hover:bg-navy-950 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-white transition-all">
-              <RefreshCw className="w-4 h-4" />
-            </button>
+          <div>
+            <h2 className="font-sora font-extrabold text-slate-900 dark:text-white text-sm flex items-center gap-2 mb-1">
+              <TrendingUp className="w-4 h-4 text-copper" /> Revenue Dashboard
+            </h2>
+            <p className="text-[11px] text-slate-400 mb-5">Platform-wide MRR, seat growth, and subscription health. Refreshed on load.</p>
+          </div>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            {[
+              { label: 'Active Seats', value: members.filter(m => !m.is_admin).length, suffix: '', color: 'text-white', bg: 'bg-white dark:bg-navy', icon: Users },
+              { label: 'Est. MRR', value: members.filter(m => !m.is_admin).length * 99, suffix: '$', prefix: '$', color: 'text-emerald-400', bg: 'bg-white dark:bg-navy', icon: DollarSign },
+              { label: 'Waitlist', value: waitlist.length, suffix: ' pending', color: 'text-amber-400', bg: 'bg-white dark:bg-navy', icon: UserCheck },
+              { label: 'Support Open', value: supportTickets.filter(t => t.status === 'open').length, suffix: '', color: 'text-rose-400', bg: 'bg-white dark:bg-navy', icon: HelpCircle },
+            ].map(({ label, value, suffix = '', prefix = '', color, bg, icon: Icon }) => (
+              <div key={label} className={`${bg} border border-app-border dark:border-navy-800 rounded-2xl p-5 shadow-card`}>
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{label}</span>
+                  <Icon className="w-4 h-4 text-slate-300 dark:text-slate-600" />
+                </div>
+                <div className={`text-2xl font-sora font-extrabold ${color}`}>{prefix}{value}{suffix}</div>
+              </div>
+            ))}
           </div>
 
-          {sysLoading ? (
-            <div className="h-40 flex items-center justify-center"><div className="w-7 h-7 border-4 border-copper border-t-transparent rounded-full animate-spin" /></div>
-          ) : (
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* Wire Transfer Payment Card */}
-              <div className="lg:col-span-1 bg-white dark:bg-navy border border-app-border dark:border-navy-800 shadow-card rounded-2xl p-6">
-                <h3 className="font-sora font-extrabold text-xs text-slate-900 dark:text-white mb-5 flex items-center gap-2">
-                  <CreditCard className="w-3.5 h-3.5 text-copper" /> Wire Transfer Payment
-                </h3>
-                {subscription ? (
-                  <div className="space-y-3 text-xs">
-                    <div className="flex justify-between items-center py-2 border-b border-slate-100 dark:border-navy-900">
-                      <span className="font-semibold text-slate-500 dark:text-slate-400">Status</span>
-                      <span className={`font-extrabold px-2.5 py-1 rounded-xl border text-[10px] uppercase tracking-wider ${
-                        (subscription.status as string) === 'active'
-                          ? 'bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-950/20 dark:border-emerald-900/30'
-                          : (subscription.status as string) === 'pending_wire'
-                          ? 'bg-amber-50 text-amber-600 border-amber-200'
-                          : (subscription.status as string) === 'past_due'
-                          ? 'bg-amber-50 text-amber-600 border-amber-200'
-                          : 'bg-rose-50 text-rose-600 border-rose-200'
-                      }`}>
-                        {(subscription.status as string) === 'pending_wire' ? '⏳ Pending Wire' : subscription.status}
-                      </span>
-                    </div>
-                    {(subscription as any).wire_reference && (
-                      <div className="flex justify-between py-2 border-b border-slate-100 dark:border-navy-900">
-                        <span className="font-semibold text-slate-500 dark:text-slate-400">Wire Ref</span>
-                        <span className="font-mono text-[9px] text-slate-400 truncate max-w-[140px]">{(subscription as any).wire_reference}</span>
-                      </div>
-                    )}
-                    {(subscription as any).wire_submitted_at && (
-                      <div className="flex justify-between py-2 border-b border-slate-100 dark:border-navy-900">
-                        <span className="font-semibold text-slate-500 dark:text-slate-400">Submitted</span>
-                        <span className="font-bold text-slate-900 dark:text-white">{new Date((subscription as any).wire_submitted_at).toLocaleDateString()}</span>
-                      </div>
-                    )}
-                    {subscription.current_period_end && (
-                      <div className="flex justify-between py-2 border-b border-slate-100 dark:border-navy-900">
-                        <span className="font-semibold text-slate-500 dark:text-slate-400">Active Until</span>
-                        <span className="font-bold text-slate-900 dark:text-white">{new Date(subscription.current_period_end).toLocaleDateString()}</span>
-                      </div>
-                    )}
-                    <div className="flex justify-between py-2 border-b border-slate-100 dark:border-navy-900">
-                      <span className="font-semibold text-slate-500 dark:text-slate-400">Registered</span>
-                      <span className="font-bold text-slate-900 dark:text-white">{new Date(subscription.created_at).toLocaleDateString()}</span>
-                    </div>
-                    {/* Admin Approve Button */}
-                    {(subscription.status as string) === 'pending_wire' && (
-                      <button
-                        onClick={async () => {
-                          const periodEnd = new Date();
-                          periodEnd.setFullYear(periodEnd.getFullYear() + 1);
-                          await supabase.from('subscriptions').update({
-                            status: 'active',
-                            current_period_end: periodEnd.toISOString(),
-                          }).eq('organization_id', subscription.organization_id);
-                          await supabase.from('organizations').update({ billing_tier: 'pro' })
-                            .eq('id', subscription.organization_id);
-                          fetchSystemLogs();
-                          toast.success('Wire payment approved — account upgraded to Pro!');
-                        }}
-                        className="w-full mt-2 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5"
-                      >
-                        ✓ Approve Wire & Activate Pro
-                      </button>
-                    )}
-                  </div>
-                ) : (
-                  <div className="py-8 text-center">
-                    <CreditCard className="w-7 h-7 text-slate-300 dark:text-slate-700 mx-auto mb-2" />
-                    <p className="text-xs text-slate-400">No subscription record found.</p>
-                  </div>
-                )}
-              </div>
-
-              {/* Usage Metrics Cards */}
-              <div className="lg:col-span-2 space-y-4">
-                <h3 className="font-sora font-extrabold text-xs text-slate-900 dark:text-white flex items-center gap-2">
-                  <TrendingUp className="w-3.5 h-3.5 text-copper" /> Usage Period Metrics
-                </h3>
-
-                {usageStats.length === 0 ? (
-                  <div className="bg-white dark:bg-navy border border-app-border dark:border-navy-800 shadow-card rounded-2xl p-10 text-center">
-                    <Activity className="w-7 h-7 text-slate-300 dark:text-slate-700 mx-auto mb-2" />
-                    <p className="text-xs text-slate-400">No usage data recorded yet.</p>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    {['proposals_sent', 'ai_prompts', 'storage_bytes'].map(metric => {
-                      const record = usageStats.find(u => u.metric_name === metric);
-                      const icons: Record<string, any> = { proposals_sent: FileText, ai_prompts: Bot, storage_bytes: Database };
-                      const MetricIcon = icons[metric] || Activity;
-                      const labels: Record<string, string> = { proposals_sent: 'Proposals Sent', ai_prompts: 'AI Prompts Used', storage_bytes: 'Storage Used' };
-                      const formatValue = (m: string, v: number) => {
-                        if (m === 'storage_bytes') return v > 1048576 ? `${(v / 1048576).toFixed(1)} MB` : `${(v / 1024).toFixed(1)} KB`;
-                        return v.toLocaleString();
-                      };
-                      return (
-                        <div key={metric} className="bg-white dark:bg-navy border border-app-border dark:border-navy-800 shadow-card rounded-2xl p-5">
-                          <div className="flex items-center gap-2 mb-3">
-                            <div className="w-8 h-8 rounded-xl bg-copper/10 border border-copper/20 flex items-center justify-center">
-                              <MetricIcon className="w-4 h-4 text-copper" />
-                            </div>
-                            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{labels[metric]}</span>
-                          </div>
-                          <span className="font-sora font-extrabold text-xl text-slate-900 dark:text-white">
-                            {record ? formatValue(metric, record.count) : '0'}
-                          </span>
-                          {record?.billing_period_start && (
-                            <p className="text-[9px] text-slate-400 mt-1">
-                              Since {new Date(record.billing_period_start).toLocaleDateString()}
-                            </p>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-
-                {/* Raw usage table */}
-                {usageStats.length > 0 && (
-                  <div className="bg-white dark:bg-navy border border-app-border dark:border-navy-800 shadow-card rounded-2xl overflow-hidden">
-                    <div className="px-5 py-3.5 border-b border-slate-100 dark:border-navy-850 bg-slate-50 dark:bg-navy-950/25">
-                      <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400">All Usage Periods</span>
-                    </div>
-                    <div className="overflow-x-auto scrollbar-thin">
-                      <table className="w-full text-xs text-left">
-                        <thead>
-                          <tr className="border-b border-slate-100 dark:border-navy-850 text-[9px] font-bold uppercase tracking-wider text-slate-400">
-                            <th className="py-3 px-5">Metric</th>
-                            <th className="py-3 px-5">Count</th>
-                            <th className="py-3 px-5">Period Start</th>
-                            <th className="py-3 px-5">Period End</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100 dark:divide-navy-900">
-                          {usageStats.map(u => (
-                            <tr key={u.id} className="hover:bg-slate-50/50 dark:hover:bg-navy-950/30">
-                              <td className="py-3 px-5 font-bold capitalize text-slate-900 dark:text-white">{u.metric_name.replace('_', ' ')}</td>
-                              <td className="py-3 px-5 text-copper font-extrabold">{u.count.toLocaleString()}</td>
-                              <td className="py-3 px-5 text-slate-400">{new Date(u.billing_period_start).toLocaleDateString()}</td>
-                              <td className="py-3 px-5 text-slate-400">{u.billing_period_end ? new Date(u.billing_period_end).toLocaleDateString() : 'Ongoing'}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                )}
-              </div>
+          <div className="bg-white dark:bg-navy border border-app-border dark:border-navy-800 rounded-2xl p-6 shadow-card">
+            <h3 className="font-bold text-xs text-slate-900 dark:text-white uppercase tracking-wider mb-4 flex items-center gap-2">
+              <Users className="w-3.5 h-3.5 text-copper" /> Active Contractor Seats
+            </h3>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse min-w-[600px]">
+                <thead>
+                  <tr className="text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 dark:border-navy-900">
+                    <th className="pb-3 pr-4">Company</th>
+                    <th className="pb-3 pr-4">Email</th>
+                    <th className="pb-3 pr-4">Joined</th>
+                    <th className="pb-3 text-right">Plan Est.</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50 dark:divide-navy-900 text-xs">
+                  {members.filter(m => !m.is_admin).map(m => (
+                    <tr key={m.id} className="hover:bg-slate-50/50 dark:hover:bg-navy-950/30">
+                      <td className="py-3 pr-4 font-bold text-slate-900 dark:text-white">{m.company_name || m.full_name || '—'}</td>
+                      <td className="py-3 pr-4 text-slate-400">{m.email}</td>
+                      <td className="py-3 pr-4 text-slate-400">{m.created_at ? new Date(m.created_at).toLocaleDateString() : '—'}</td>
+                      <td className="py-3 text-right">
+                        <span className="bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-900/30 text-[9px] font-black px-2.5 py-1 rounded-xl uppercase">$99/mo</span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
-          )}
-        </div>
-
-      ) : null}
-
-      {/* Invite Modal */}
-      {showInviteModal && (
-        <div className="fixed inset-0 bg-slate-950/45 dark:bg-slate-950/65 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-navy border border-slate-200 dark:border-navy-800 rounded-2xl p-6 max-w-md w-full shadow-premium animate-scale-in text-left">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="w-12 h-12 bg-slate-100 dark:bg-navy-950 rounded-2xl flex items-center justify-center text-slate-900 dark:text-white flex-shrink-0">
-                <UserCheck className="w-6 h-6" />
-              </div>
-              <div>
-                <h3 className="text-sm font-sora font-extrabold text-slate-900 dark:text-white">Send Enterprise Invitation</h3>
-                <p className="text-slate-400 text-[10px] mt-0.5">Sends a secure onboarding setup link directly to their inbox.</p>
-              </div>
-            </div>
-
-            <form onSubmit={handleInvite} className="space-y-4 font-inter text-xs">
-              <div>
-                <label className="block text-slate-700 dark:text-slate-300 font-bold mb-1.5">Recipient Email <span className="text-rose-500">*</span></label>
-                <input
-                  type="email"
-                  required
-                  value={inviteEmail}
-                  onChange={e => setInviteEmail(e.target.value)}
-                  placeholder="contractor@company.com"
-                  className="w-full px-4 py-2.5 bg-slate-50 dark:bg-navy-950 border border-slate-200 dark:border-navy-850 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-copper"
-                />
-              </div>
-
-              <div>
-                <label className="block text-slate-700 dark:text-slate-300 font-bold mb-1.5">Full Name</label>
-                <input
-                  type="text"
-                  value={inviteName}
-                  onChange={e => setInviteName(e.target.value)}
-                  placeholder="John Smith"
-                  className="w-full px-4 py-2.5 bg-slate-50 dark:bg-navy-950 border border-slate-200 dark:border-navy-850 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-copper"
-                />
-              </div>
-
-              <div>
-                <label className="block text-slate-700 dark:text-slate-300 font-bold mb-1.5">Company Name</label>
-                <input
-                  type="text"
-                  value={inviteCompany}
-                  onChange={e => setInviteCompany(e.target.value)}
-                  placeholder="Smith Roofing LLC"
-                  className="w-full px-4 py-2.5 bg-slate-50 dark:bg-navy-950 border border-slate-200 dark:border-navy-850 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-copper"
-                />
-              </div>
-
-              <div className="flex items-center justify-end gap-3 pt-4 border-t border-app-border dark:border-navy-800">
-                <button
-                  type="button"
-                  onClick={() => setShowInviteModal(false)}
-                  className="px-4 py-2 text-slate-400 hover:text-slate-600 dark:hover:text-white font-bold"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={inviting}
-                  className="bg-copper hover:bg-copper-hover disabled:opacity-50 text-white font-bold px-5 py-2 rounded-xl transition-all shadow-md flex items-center gap-1.5"
-                >
-                  {inviting ? (
-                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  ) : (
-                    'Send Magic Link'
-                  )}
-                </button>
-              </div>
-            </form>
           </div>
         </div>
-      )}
+
+      ) : activeTab === 'broadcast' ? (
+        /* ═══════════════════════════════════════════════════
+           BROADCAST EMAIL TO ALL USERS
+        ═══════════════════════════════════════════════════ */
+        <BroadcastPanel members={members} />
+
+      ) : activeTab === 'churn' ? (
+        /* ═══════════════════════════════════════════════════
+           CHURN RISK MONITOR
+        ═══════════════════════════════════════════════════ */
+        <div className="space-y-6">
+          <div>
+            <h2 className="font-sora font-extrabold text-slate-900 dark:text-white text-sm flex items-center gap-2 mb-1">
+              <Activity className="w-4 h-4 text-rose-400" /> Churn Risk Monitor
+            </h2>
+            <p className="text-[11px] text-slate-400 mb-5">Contractors who haven't logged in for 14+ days or have no proposals in 30 days are flagged here.</p>
+          </div>
+          <div className="bg-white dark:bg-navy border border-app-border dark:border-navy-800 rounded-2xl p-6 shadow-card">
+            <div className="flex items-center gap-3 py-8 justify-center flex-col text-center">
+              <Activity className="w-8 h-8 text-slate-300 dark:text-slate-700" />
+              <p className="text-sm text-slate-400 max-w-xs">Churn risk scoring uses last_login_at and proposal activity. Connect your analytics events table to populate this view automatically.</p>
+              <div className="mt-4 space-y-3 w-full max-w-md text-left">
+                {members.filter(m => !m.is_admin).slice(0, 5).map(m => (
+                  <div key={m.id} className="flex items-center justify-between px-4 py-3 bg-amber-50 dark:bg-amber-950/10 border border-amber-200 dark:border-amber-900/30 rounded-xl">
+                    <div>
+                      <div className="text-xs font-bold text-slate-900 dark:text-white">{m.company_name || m.email}</div>
+                      <div className="text-[10px] text-slate-400 mt-0.5">Last active: unknown — needs analytics hook</div>
+                    </div>
+                    <span className="text-[9px] font-black text-amber-600 bg-amber-100 dark:bg-amber-900/30 px-2 py-1 rounded-lg uppercase">At Risk</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+
+      ) : null
+      }
     </div>
   );
 }
