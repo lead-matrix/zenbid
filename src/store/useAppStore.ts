@@ -52,6 +52,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   setProfile: (profile) => set({ profile }),
 
   fetchProfile: async () => {
+    if (get().profile || get().loading) return; // Skip if already loaded or in progress
+
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
