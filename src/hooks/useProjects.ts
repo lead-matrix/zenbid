@@ -20,20 +20,18 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../api/supabase';
-import { useAppStore } from '../store/useAppStore';
+import { useOrganization } from '../providers/OrganizationProvider';
 import type { Project, StatusType } from '../types';
 import { toast } from 'sonner';
 
 export function useProjects() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
-  const activeUserId = useAppStore(s => s.activeUserId());
-  const activeProfile = useAppStore(s => s.activeProfile());
+  const { activeUserId, activeProfile: profile } = useOrganization();
   const prevUserIdRef = useRef<string | null>(null);
 
   const fetchProjects = useCallback(async () => {
-    const userId = useAppStore.getState().activeUserId();
-    const profile = useAppStore.getState().activeProfile();
+    const userId = activeUserId;
 
     if (!userId) {
       setProjects([]);
@@ -85,7 +83,6 @@ export function useProjects() {
     prevUserIdRef.current = activeUserId;
     fetchProjects();
 
-    const profile = useAppStore.getState().activeProfile();
     const orgId = profile?.organization_id;
     const userId = activeUserId;
 
@@ -114,8 +111,7 @@ export function useProjects() {
   }, [fetchProjects, activeUserId]);
 
   const createProject = async (input: Partial<Project>): Promise<Project | null> => {
-    const userId = useAppStore.getState().activeUserId();
-    const profile = useAppStore.getState().activeProfile();
+    const userId = activeUserId;
     if (!userId) return null;
 
     const brandSnapshot = profile ? {

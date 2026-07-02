@@ -1,13 +1,13 @@
 import { useState, useRef, useEffect } from 'react';
 import { Building2, Mail, Phone, Save, Upload, Percent, Moon, Sun, Bell, Copy, CheckCircle2, Landmark, Send, ShieldCheck, ArrowRight, Zap, CreditCard, RefreshCw, ShieldAlert } from 'lucide-react';
-import { useAppStore } from '../store/useAppStore';
+import { useAuth } from '../providers/AuthProvider';
 import { supabase } from '../api/supabase';
 import { toast } from 'sonner';
 import { usePermissions } from '../hooks/usePermissions';
 import CustomDomainSettings from '../components/settings/CustomDomainSettings';
 
 export default function Settings() {
-  const { profile, updateProfile } = useAppStore();
+  const { profile, updateProfile } = useAuth();
   const { isAdminPortalAccess, isSuperAdmin, role } = usePermissions();
   const isOrgOwnerOrAbove = isSuperAdmin || role === 'organization_owner' || role === 'agency_admin';
   const [profileForm, setProfileForm] = useState({

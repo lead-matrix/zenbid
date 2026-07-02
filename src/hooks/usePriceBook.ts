@@ -1,17 +1,17 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../api/supabase';
-import { useAppStore } from '../store/useAppStore';
+import { useOrganization } from '../providers/OrganizationProvider';
 import type { PriceBookItem } from '../types';
 import { toast } from 'sonner';
 
 export function usePriceBook() {
   const [items, setItems] = useState<PriceBookItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const activeUserId = useAppStore(s => s.activeUserId());
+  const { activeUserId } = useOrganization();
 
   const fetchItems = useCallback(async () => {
     setLoading(true);
-    const userId = useAppStore.getState().activeUserId();
+    const userId = activeUserId;
     const { data, error } = await supabase
       .from('price_book')
       .select('*')
@@ -24,7 +24,7 @@ export function usePriceBook() {
       setItems((data as PriceBookItem[]) || []);
     }
     setLoading(false);
-  }, []);
+  }, [activeUserId]);
 
   // Re-fetch when active user changes (impersonation toggle)
   useEffect(() => {
@@ -32,7 +32,7 @@ export function usePriceBook() {
   }, [fetchItems, activeUserId]);
 
   const addItem = async (item: Partial<PriceBookItem>): Promise<PriceBookItem | null> => {
-    const userId = useAppStore.getState().activeUserId();
+    const userId = activeUserId;
     if (!userId) return null;
 
     const { data, error } = await supabase

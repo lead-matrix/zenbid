@@ -2,6 +2,8 @@ import { NavLink, Link, useNavigate } from 'react-router-dom';
 import { LayoutDashboard, Briefcase, BookOpen, Settings, LogOut, ShieldAlert, X, Menu, Sun, Moon, Award, HelpCircle, Bell, ClipboardList, FileText, Wrench, UserCheck } from 'lucide-react';
 import { supabase } from '../../api/supabase';
 import { useAppStore } from '../../store/useAppStore';
+import { useAuth } from '../../providers/AuthProvider';
+import { useOrganization } from '../../providers/OrganizationProvider';
 import { toast } from 'sonner';
 import { useState, useEffect } from 'react';
 import NotificationPanel from './NotificationPanel';
@@ -32,9 +34,9 @@ function PeakLogo({ size = 32 }: { size?: number }) {
 
 export default function Sidebar() {
   const navigate = useNavigate();
-  const profile = useAppStore(s => s.profile);
-  const impersonatedProfile = useAppStore(s => s.impersonatedProfile);
-  const stopImpersonation = useAppStore(s => s.stopImpersonation);
+  const { profile } = useAuth();
+  const { impersonation, stopImpersonation } = useOrganization();
+  const impersonatedProfile = impersonation?.targetProfile;
   const [mobileOpen, setMobileOpen] = useState(false);
   const [isDark, setIsDark] = useState(() => document.documentElement.classList.contains('dark'));
   const [showNotifications, setShowNotifications] = useState(false);
@@ -60,7 +62,7 @@ export default function Sidebar() {
     return () => { supabase.removeChannel(channel); };
   }, []);
 
-  const fetchUnreadCount = async () => {
+  async function fetchUnreadCount() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
     const { count, error } = await supabase

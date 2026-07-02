@@ -10,7 +10,7 @@ import {
   Zap, Star
 } from 'lucide-react';
 import { useProjects } from '../hooks/useProjects';
-import { useAppStore } from '../store/useAppStore';
+import { useAuth } from '../providers/AuthProvider';
 import { useEventBus } from '../hooks/useEventBus';
 import { supabase } from '../api/supabase';
 import { formatCurrency } from '../lib/calculations';
@@ -31,8 +31,7 @@ const TRADE_COLORS = ['#C58B5C', '#1E293B', '#10B981', '#F59E0B', '#EF4444', '#8
 export default function Dashboard() {
   const navigate = useNavigate();
   const { projects, loading: projectsLoading, fetchProjects } = useProjects();
-  const profile = useAppStore(s => s.profile);
-  const updateProfile = useAppStore(s => s.updateProfile);
+  const { profile, updateProfile } = useAuth();
   const { triggerEvent } = useEventBus();
 
   const [events, setEvents] = useState<ActivityEvent[]>([]);

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../api/supabase';
-import { useAppStore } from '../store/useAppStore';
+import { useAuth } from '../providers/AuthProvider';
 import { useEventBus } from '../hooks/useEventBus';
 import {
   HelpCircle, LifeBuoy, AlertCircle, Clock, Send, Plus,
@@ -10,7 +10,7 @@ import { toast } from 'sonner';
 import type { SupportTicket, TicketResponse } from '../types';
 
 export default function SupportDesk() {
-  const profile = useAppStore(s => s.profile);
+  const { profile } = useAuth();
   const { triggerEvent } = useEventBus();
   
   const [tickets, setTickets] = useState<SupportTicket[]>([]);

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAppStore } from '../store/useAppStore';
+import { useAuth } from '../providers/AuthProvider';
 import { useEventBus } from '../hooks/useEventBus';
 import { supabase } from '../api/supabase';
 import {
@@ -12,8 +12,7 @@ import { toast } from 'sonner';
 
 export default function ClientSuccess() {
   const navigate = useNavigate();
-  const profile = useAppStore(s => s.profile);
-  const updateProfile = useAppStore(s => s.updateProfile);
+  const { profile, updateProfile } = useAuth();
   const { triggerEvent } = useEventBus();
 
   const [loading, setLoading] = useState(false);

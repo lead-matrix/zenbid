@@ -59,7 +59,7 @@ export default function TemplateSelectModal({
     }
   }, [isOpen]);
 
-  const fetchTemplates = async () => {
+  async function fetchTemplates() {
     setLoading(true);
     try {
       // Fetch templates

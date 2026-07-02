@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, Check, Building2, Phone, Mail, Award, ArrowRight, ArrowLeft, Layers, ShieldCheck, Zap, Sparkles } from 'lucide-react';
-import { useAppStore } from '../../store/useAppStore';
+import { useAuth } from '../../providers/AuthProvider';
 import { useEventBus } from '../../hooks/useEventBus';
 import { supabase } from '../../api/supabase';
 import { toast } from 'sonner';
@@ -10,8 +10,7 @@ interface WelcomeModalProps {
 }
 
 export default function WelcomeModal({ onClose }: WelcomeModalProps) {
-  const profile = useAppStore(s => s.profile);
-  const updateProfile = useAppStore(s => s.updateProfile);
+  const { profile, updateProfile } = useAuth();
   const { triggerEvent } = useEventBus();
   
   const [step, setStep] = useState(1);

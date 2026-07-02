@@ -35,7 +35,7 @@ export default function FieldMode() {
     };
   }, []);
 
-  const loadOfflineData = async () => {
+  async function loadOfflineData() {
     try {
       const drafts = await offlineDB.getAll<OfflineDraft>('drafts');
       setOfflineDrafts(drafts);
@@ -47,7 +47,7 @@ export default function FieldMode() {
     }
   };
 
-  const triggerSync = async () => {
+  async function triggerSync() {
     if (!navigator.onLine) {
       toast.error('Cannot sync while offline.');
       return;

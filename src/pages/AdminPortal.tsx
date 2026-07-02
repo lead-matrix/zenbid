@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import BroadcastPanel from '../components/admin/BroadcastPanel';
 import { supabase } from '../api/supabase';
 import { useEventBus } from '../hooks/useEventBus';
-import { useAppStore } from '../store/useAppStore';
+import { useOrganization } from '../providers/OrganizationProvider';
 import {Activity, AlertCircle, ArrowRight, Bell, Bot, Building2, Check, CheckCircle2, ChevronRight, CircleCheck, CircleX, ClipboardList, Clock, CreditCard, Database, DollarSign, Eye, FileText, Flag, Globe, Heart, HelpCircle, Laptop, LayoutTemplate, LogIn, Mail, MessageSquare, Package, Pencil, Percent, Plus, RefreshCw, Save, ScrollText, Search, Send, Shield, ShieldAlert, Smartphone, Star, Timer, ToggleLeft, ToggleRight, Trash2, TrendingUp, UserCheck, UserPlus, Users, X, Zap} from 'lucide-react';
 import { toast } from 'sonner';
 import { campaignManager, DEFAULT_FOLLOW_UP_RULES, type FollowUpRule } from '../lib/followUpCampaigns';
@@ -26,7 +26,7 @@ type AdminTab = 'members' | 'crm' | 'integrations' | 'support' | 'email_logs' | 
 export default function AdminPortal({ initialTab }: { initialTab?: string } = {}) {
   const { triggerEvent } = useEventBus();
   const navigate = useNavigate();
-  const { startImpersonation } = useAppStore();
+  const { startImpersonation } = useOrganization();
   
   // Tabs
   const [activeTab, setActiveTab] = useState<AdminTab>((initialTab as AdminTab) || 'members');

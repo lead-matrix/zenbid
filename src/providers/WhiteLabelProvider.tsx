@@ -61,7 +61,7 @@ export function WhiteLabelProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // Helper to inject CSS variables dynamically based on tenant settings
-  const applyWhiteLabelTheming = (org: Organization) => {
+  function applyWhiteLabelTheming(org: Organization) {
     if (!org.white_label_settings) return;
     const settings = org.white_label_settings as Record<string, any>;
     

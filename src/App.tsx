@@ -94,11 +94,6 @@ function AdminRoute({ children }: { children: React.ReactNode }) {
 // ─── AppLayout — authenticated shell with sidebar ─────────────────
 
 function AppLayout({ children }: { children: React.ReactNode }) {
-  const fetchProfile = useAppStore(s => s.fetchProfile);
-
-  // Sync legacy store profile on mount (migration bridge)
-  useEffect(() => { fetchProfile(); }, [fetchProfile]);
-
   return (
     <>
       <ImpersonationBanner />

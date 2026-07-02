@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Share2, ChevronDown, Lock, FileText, CheckCircle2, Shield, History, DollarSign, Calendar, Users, BarChart2, TrendingUp } from 'lucide-react';
 import { toast } from 'sonner';
-import { useAppStore } from '../store/useAppStore';
+import { useAuth } from '../providers/AuthProvider';
 import { useProject } from '../hooks/useProjects';
 import { useProjectItems } from '../hooks/useProjectItems';
 import { calcTotals } from '../lib/calculations';
@@ -39,7 +39,7 @@ const STATUS_LABEL_COLORS: Record<StatusType, string> = {
 export default function EstimatorWorkspace() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const profile = useAppStore(s => s.profile);
+  const { profile } = useAuth();
   const { project, loading: projLoading, updateProject } = useProject(id);
   const { items, loading: itemsLoading, addItem, updateItem, deleteItem, reorderItems } = useProjectItems(id);
 

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { X } from 'lucide-react';
-import { useAppStore } from '../../store/useAppStore';
+import { useAuth } from '../../providers/AuthProvider';
 import type { Project, TradeType } from '../../types';
 import { TRADE_EMOJIS } from '../../types';
 
@@ -21,7 +21,7 @@ const TRADES: { value: TradeType; label: string }[] = [
 ];
 
 export default function AddProjectModal({ onClose, onCreate }: Props) {
-  const profile = useAppStore(s => s.profile);
+  const { profile } = useAuth();
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({
     name: '',

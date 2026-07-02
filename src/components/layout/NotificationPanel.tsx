@@ -28,7 +28,7 @@ export default function NotificationPanel({ onClose }: NotificationPanelProps) {
     };
   }, []);
 
-  const fetchNotifications = async () => {
+  async function fetchNotifications() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 

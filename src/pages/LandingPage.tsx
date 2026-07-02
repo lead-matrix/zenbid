@@ -529,6 +529,21 @@ export default function LandingPage() {
           </div>
         </section>
       </main>
+
+      <footer className="border-t border-white/5 bg-[#020617] py-12 text-center text-sm text-slate-500">
+        <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-6 px-4 sm:flex-row sm:px-6">
+          <div className="flex items-center gap-2">
+            <PeakLogo size={24} />
+            <span className="font-sora text-sm font-black tracking-tight text-white">Peak<span className="text-copper">Estimator</span></span>
+          </div>
+          <div className="flex gap-6 font-medium text-slate-400">
+            <Link to="/support" className="transition hover:text-white">Support</Link>
+            <a href="#" className="transition hover:text-white">Terms</a>
+            <a href="#" className="transition hover:text-white">Privacy</a>
+          </div>
+          <p className="text-xs">&copy; {new Date().getFullYear()} PeakEstimator. All rights reserved.</p>
+        </div>
+      </footer>
     </div>
   );
 }

@@ -40,6 +40,7 @@ export interface AuthContextValue {
   loading: boolean;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
+  updateProfile: (updates: Partial<Profile>) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -85,6 +86,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!currentUser) return;
     await fetchProfile(currentUser.id);
   }, [user, fetchProfile]);
+
+  const updateProfile = useCallback(async (updates: Partial<Profile>) => {
+    try {
+      const currentUser = user;
+      if (!currentUser) return;
+
+      const { data, error } = await supabase
+        .from('profiles')
+        .update({ ...updates, updated_at: new Date().toISOString() })
+        .eq('id', currentUser.id)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('[AuthProvider] updateProfile error:', error.message);
+        return;
+      }
+      if (data && mountedRef.current) {
+        setProfile(data as Profile);
+      }
+    } catch (err) {
+      console.error('[AuthProvider] updateProfile unexpected error:', err);
+    }
+  }, [user]);
 
   // ── Single auth listener — mounted once ────────────────────────
   useEffect(() => {
@@ -145,6 +170,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     loading,
     signOut,
     refreshProfile,
+    updateProfile,
   };
 
   return (
